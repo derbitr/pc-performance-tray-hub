@@ -24,3 +24,6 @@ env/
 *.tmp
 test_*.png
 test_*.ico
+
+docs/plans/
+docs/specs/
