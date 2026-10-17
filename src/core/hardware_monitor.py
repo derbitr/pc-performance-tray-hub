@@ -59,3 +59,38 @@ class HardwareMonitor:
         else:
             self._base_ambient = 35.0
         return self._target_fan_speed
+
+    @staticmethod
+    def get_hardware_info() -> Dict[str, str]:
+        """Detecta dinamicamente o modelo exato da CPU e quantidade de RAM em qualquer PC."""
+        cpu_label = "Processador"
+        try:
+            import winreg
+            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
+            raw_name, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+            raw_name = raw_name.strip()
+            import re
+            m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
+            m_ryzen = re.search(r"(Ryzen\s+\d\s+\w+)", raw_name, re.I)
+            if m_intel:
+                cpu_label = f"Core {m_intel.group(1)}"
+            elif m_ryzen:
+                cpu_label = m_ryzen.group(1)
+            else:
+                cpu_label = raw_name.split("@")[0].replace("Intel(R)", "").replace("AMD", "").replace("Processor", "").replace("CPU", "").strip()
+        except Exception:
+            pass
+
+        ram_label = "16GB RAM"
+        try:
+            total_gb = round(psutil.virtual_memory().total / (1024**3))
+            ram_label = f"{total_gb}GB RAM"
+        except Exception:
+            pass
+
+        return {
+            "cpu": cpu_label,
+            "ram": ram_label,
+            "full_spec": f"{cpu_label} • {ram_label}"
+        }
+

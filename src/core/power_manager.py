@@ -1,24 +1,25 @@
 """
 Módulo de Gerenciamento de Esquemas de Energia (PowerManager)
-Controla perfis de energia do Windows via APIs nativas e powercfg.
+Controla perfis de energia do Windows via APIs nativas e powercfg,
+detectando dinamicamente os planos de qualquer computador (Intel, AMD, Notebooks ou Desktops).
 """
 
 import subprocess
 import re
 from typing import Dict, Optional
 
-# GUIDs padrão do Windows
+# GUIDs padrão do Windows (atualizados dinamicamente pelo discovery)
 SCHEMES = {
     "turbo": {
         "id": "turbo",
         "name": "Turbo Max",
-        "guid": "261561f2-df2e-4c08-be8e-41f4c8eaefb6", # Desempenho Máximo
+        "guid": "261561f2-df2e-4c08-be8e-41f4c8eaefb6", # Desempenho Máximo / Alto Desempenho
         "desc": "Clock máximo contínuo, resposta instantânea para jogos e trabalho pesado."
     },
     "balanced": {
         "id": "balanced",
         "name": "Equilibrado",
-        "guid": "381b4222-f694-41f0-9685-ff5bb260df2e", # Equilibrado
+        "guid": "381b4222-f694-41f0-9685-ff5bb260df2e", # Equilibrado padrão do Windows
         "desc": "Gerenciamento dinâmico de clock e voltagem conforme a demanda."
     },
     "silent": {
@@ -30,8 +31,39 @@ SCHEMES = {
 }
 
 class PowerManager:
-    @staticmethod
-    def get_active_scheme() -> Dict[str, str]:
+    def __init__(self):
+        self._discover_schemes()
+
+    def _discover_schemes(self):
+        """Mapeia dinamicamente os planos de energia presentes nesta máquina."""
+        try:
+            res = subprocess.run(
+                ["powercfg", "/list"],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            for line in res.stdout.splitlines():
+                m = re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s+\((.+?)\)", line)
+                if m:
+                    guid, name = m.group(1), m.group(2).strip()
+                    nl = name.lower()
+                    if ("máximo" in nl or "maximo" in nl or "ultimate" in nl or "turbo" in nl):
+                        SCHEMES["turbo"]["guid"] = guid
+                        SCHEMES["turbo"]["name"] = name
+                    elif ("alto" in nl or "high" in nl) and SCHEMES["turbo"]["name"] == "Turbo Max":
+                        SCHEMES["turbo"]["guid"] = guid
+                        SCHEMES["turbo"]["name"] = name
+                    elif "equilibrado" in nl or "balanced" in nl:
+                        SCHEMES["balanced"]["guid"] = guid
+                        SCHEMES["balanced"]["name"] = name
+                    elif "economia" in nl or "saver" in nl or "silent" in nl:
+                        SCHEMES["silent"]["guid"] = guid
+                        SCHEMES["silent"]["name"] = name
+        except Exception:
+            pass
+
+    def get_active_scheme(self) -> Dict[str, str]:
         """Retorna o esquema de energia ativo atualmente."""
         try:
             res = subprocess.run(
@@ -44,15 +76,13 @@ class PowerManager:
             for key, data in SCHEMES.items():
                 if data["guid"].lower() in out:
                     return data
-            # Se for um GUID desconhecido ou personalizado (ex: QuickCpu)
             match = re.search(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})", out)
             guid = match.group(1) if match else ""
             return {"id": "custom", "name": "Personalizado", "guid": guid, "desc": "Plano customizado ativo"}
         except Exception as e:
             return {"id": "unknown", "name": "Desconhecido", "guid": "", "desc": str(e)}
 
-    @staticmethod
-    def set_scheme(scheme_key: str) -> bool:
+    def set_scheme(self, scheme_key: str) -> bool:
         """Ativa um dos esquemas suportados ('turbo', 'balanced', 'silent')."""
         if scheme_key not in SCHEMES:
             return False

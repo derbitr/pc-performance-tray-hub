@@ -33,9 +33,12 @@ class PerformanceTrayApp:
         # Janela Flyout
         self.flyout = FlyoutWindow()
 
+        # Informações de Hardware Dinâmicas
+        self.hw_info = HardwareMonitor.get_hardware_info()
+
         # Ícone da Bandeja
         self.tray = QSystemTrayIcon()
-        self.tray.setToolTip("Performance Tray Hub • Core i7-7700")
+        self.tray.setToolTip(f"Performance Tray Hub • {self.hw_info['cpu']}")
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.messageClicked.connect(self.flyout.show_or_toggle)
 
@@ -57,9 +60,10 @@ class PerformanceTrayApp:
         self.tray.show()
 
         # Notificação de boas-vindas para evidenciar o ícone na bandeja
+        cpu_name = self.hw_info['cpu']
         QTimer.singleShot(800, lambda: self.tray.showMessage(
             "PC Performance Hub Ativo",
-            "Monitorando Core i7-7700. Clique aqui para abrir o painel ou use Ctrl+Shift+F12.",
+            f"Monitorando {cpu_name}. Clique aqui para abrir o painel ou use Ctrl+Shift+F12.",
             QSystemTrayIcon.MessageIcon.Information,
             3500
         ))
