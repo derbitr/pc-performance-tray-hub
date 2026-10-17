@@ -4,7 +4,7 @@ Otimizador de desktop ultraleve (consumo inferior a 20 MB de RAM e 0.0% de CPU e
 
 ---
 
-## Download Rapido
+## Download Rápido
 
 * **Instalador Automático (Recomendado):** **[Baixar PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)**
 * **Executável Portátil Standalone:** **[Baixar PCTrayHub.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub.exe)**
@@ -12,34 +12,34 @@ Otimizador de desktop ultraleve (consumo inferior a 20 MB de RAM e 0.0% de CPU e
 
 ---
 
-## Metodos de Instalacao
+## Metodos de Instalacão
 
-### Metodo 1: Instalador Automatico (Para Terceiros e Usuarios Finais)
+### Metodo 1: Instalador Automatico (Para Terceiros e Usuários Finais)
 
-Este metodo nao requer instalacao de Python, abertura de terminal ou comandos manuais.
+Este método não requer instalação de Python, abertura de terminal ou comandos manuais.
 
 * **Download Direto do Instalador:**
   * **[Clique aqui para baixar o PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)** (Download Direto - 1 Clique)
-  * Ou acesse a **[Pagina de Releases Oficiais no GitHub](https://github.com/derbitr/pc-performance-tray-hub/releases/latest)** para conferir todas as notas de versao.
+  * Ou acesse a **[Pagina de Releases Oficiais no GitHub](https://github.com/derbitr/pc-performance-tray-hub/releases/latest)** para conferir todas as notas de versão.
 
 #### Passo a Passo:
 1. Baixe o instalador pelo link direto: **[PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)**.
 2. Execute o arquivo `PCTrayHub_Setup.exe` baixado com um clique duplo.
 3. Na janela do instalador com interface Dark:
-   - Selecione ou mantenha o diretorio de instalacao padrao (`%LOCALAPPDATA%\Programs\PCPerformanceTrayHub`).
-   - Mantenha marcadas as opcoes de criar atalhos na Area de Trabalho, Menu Iniciar e inicializacao automatica com o Windows (sem prompt de UAC).
+   - Selecione ou mantenha o diretorio de instalação padrão (`%LOCALAPPDATA%\Programs\PCPerformanceTrayHub`).
+   - Mantenha marcadas as opçoes de criar atalhos na Area de Trabalho, Menu Iniciar e inicializacão automatica com o Windows (sem prompt de UAC).
    - Clique em **INSTALAR AGORA**.
 4. O aplicativo sera copiado, configurado no Agendador de Tarefas do Windows e iniciado imediatamente na bandeja do sistema (proximo ao relogio).
 
 #### Desinstalacao do Metodo 1
 - O aplicativo pode ser desinstalado diretamente pelo **Painel de Controle -> Programas e Recursos** ou em **Configuracoes -> Aplicativos Instalados** do Windows, selecionando `PC Performance Tray Hub`.
-- Alternativamente, execute o arquivo `uninstall.bat` localizado na pasta de instalacao.
+- Alternativamente, execute o arquivo `uninstall.bat` localizado na pasta de instalacão.
 
 ---
 
-### Metodo 2: Instalacao Manual a Partir do Codigo-Fonte (Para Desenvolvedores)
+### Metodo 2: Instalãcao Manual a Partir do Codigo-Fonte (Para Desenvolvedores)
 
-Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via interpretador Python ou compilar suas proprias versoes.
+Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via interpretador Python ou compilar suas próprias versões.
 
 #### Pre-requisitos
 * Sistema Operacional: Windows 10 ou Windows 11 (64-bit).
@@ -61,7 +61,7 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
    .\.venv\Scripts\activate
    ```
 
-3. **Instalar as Dependencias:**
+3. **Instalar as Dependências:**
    ```powershell
    pip install --upgrade pip
    pip install -r requirements.txt
@@ -71,9 +71,9 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
    ```powershell
    python main.py
    ```
-   O aplicativo sera inicializado em segundo plano e fixado na bandeja do sistema (System Tray).
+   O aplicativo será inicializado em segundo plano e fixado na bandeja do sistema (System Tray).
 
-5. **Compilar os Executaveis Binarios (Opcional):**
+5. **Compilar os Executáveis Binários (Opcional):**
    Para gerar o executavel standalone unico sem console:
    ```powershell
    python -m PyInstaller --noconsole --onefile --name "PCTrayHub" --icon="app_icon.ico" --add-data "src;src" main.py
@@ -82,26 +82,26 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
    ```powershell
    python -m PyInstaller --noconsole --onefile --name "PCTrayHub_Setup" --icon="app_icon.ico" --add-data "dist/PCTrayHub.exe;." --add-data "app_icon.ico;." installer.py
    ```
-   Os arquivos compilados ficarao disponiveis na pasta `dist/`.
+   Os arquivos compilados ficarão disponíveis na pasta `dist/`.
 
 ---
 
 ## Recursos e Funcionalidades
 
 * **Graficos Vetoriais em Tempo Real (Customizaveis):**
-  * Tracado continuo renderizado via `QPainter` com seletores tipo pilula.
-  * Escolha de exibicao flexivel: exiba os graficos na primeira janela (Hub) ou na gaveta lateral expansivel (`Local: [ Hub ] [ Lateral ]`).
-  * Grafico de CPU e Temperatura: monitoramento de processamento e termica em tempo real.
-  * Grafico de Memoria RAM: percentual de uso fisico e memoria livre disponivel.
-  * Grafico de Placa de Video (GPU): carga percentual de processamento e alocacao de VRAM.
+  * Traçado contínuo renderizado via `QPainter` com seletores tipo pílula.
+  * Escolha de exibicao flexível: exiba os gráficos na primeira janela (Hub) ou na gaveta lateral expansível (`Local: [ Hub ] [ Lateral ]`).
+  * Grafico de CPU e Temperatura: monitoramento de processamento e térmica em tempo real.
+  * Grafico de Memória RAM: percentual de uso físico e memoria livre disponivel.
+  * Gráfico de Placa de Video (GPU): carga percentual de processamento e alocacao de VRAM.
 
-* **Gaveta Lateral Expansivel:**
+* **Gaveta Lateral Expansível:**
   * O painel se expande lateralmente com animacao fluida baseada em curvas cubicas (`OutCubic`), revelando gadgets complementares e processos com maior consumo de memoria.
-  * Detecao inteligente das bordas da tela: quando acoplado no canto direito, expande-se suavemente para a esquerda em direcao ao centro da tela sem ultrapassar os limites do monitor.
+  * Detecçao inteligente das bordas da tela: quando acoplado no canto direito, expande-se suavemente para a esquerda em direcao ao centro da tela sem ultrapassar os limites do monitor.
 
 * **Monitoramento e Otimizacao de Jogos (Anti-Cheat Seguro):**
-  * Deteccao automatica do processo de jogo em tela cheia via Win32 API.
-  * Elevacao automatica de prioridade para `HIGH_PRIORITY_CLASS` sem injecao de DLLs (totalmente compativel e seguro contra bloqueios de Riot Vanguard, EAC, BattlEye e VAC).
+  * Detecção automática do processo de jogo em tela cheia via Win32 API.
+  * Elevacao automática de prioridade para `HIGH_PRIORITY_CLASS` sem injecão de DLLs (totalmente compatível e seguro contra bloqueios de Riot Vanguard, EAC, BattlEye e VAC).
   * Leitura de taxa de quadros (FPS) via memoria compartilhada nativa do RivaTuner Statistics Server (RTSS), caso esteja presente no sistema.
 
 * **Controle de Energia e Latencia de Sistema:**
@@ -110,8 +110,8 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
 
 * **Limpeza de Memoria RAM e Armazenamento:**
   * Esvaziamento de Working Set e purga de Standby List da memoria sem fechar programas ou causar perda de dados.
-  * Limpeza rapida de arquivos temporarios de `%TEMP%` preservando sessoes ativas e arquivos criados nos ultimos 20 minutos.
-  * Otimizacao de rede com descarga instantanea do cache de resolucao DNS (`ipconfig /flushdns` e `dnsapi.dll`).
+  * Limpeza rápida de arquivos temporarios de `%TEMP%` preservando sessões ativas e arquivos criados nos ultimos 20 minutos.
+  * Otimizacão de rede com descarga instântanea do cache de resolucao DNS (`ipconfig /flushdns` e `dnsapi.dll`).
 
 * **Congelamento Seguro de Aplicativos em Segundo Plano:**
   * Pausa launchers pesados (Steam, Epic Games, Discord, EA App, Spotify, Docker) atraves de `NtSuspendProcess` durante sessoes de jogo, liberando CPU e RAM sem fechar as sessoes ativas.
@@ -121,8 +121,8 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
   * Informa o status de versão atual (`v1.0.0`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para baixar a versão mais recente diretamente da página oficial de Releases.
   * Acessível tanto no gadget da gaveta lateral quanto através do menu de contexto da bandeja ("Verificar Atualizações").
 
-* **Diagnostico de Sistema em 1 Clique:**
-  * Botao no rodape que gera e copia instantaneamente para a area de transferencia um relatorio completo das especificacoes do sistema (modelo de processador, frequencia, uso de threads, placa de video, memoria VRAM, integridade S.M.A.R.T. de discos e latencia de timer).
+* **Diagnóstico de Sistema em 1 Clique:**
+  * Botao no rodape que gera e copia instantaneamente para a área de transferência um relatorio completo das especificacões do sistema (modelo de processador, frequência, uso de threads, placa de vídeo, memória VRAM, integridade S.M.A.R.T. de discos e latência de timer).
 
 * **Atalho Global:**
   * `Ctrl + Shift + F12`: Executa a limpeza imediata de memoria RAM em segundo plano a partir de qualquer aplicativo ou jogo.
