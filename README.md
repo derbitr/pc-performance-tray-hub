@@ -37,7 +37,7 @@ Este método não requer instalação de Python, abertura de terminal ou comando
 
 ---
 
-### Metodo 2: Instalãcao Manual a Partir do Codigo-Fonte (Para Desenvolvedores)
+### Metodo 2: Instalação Manual a Partir do Codigo-Fonte (Para Desenvolvedores)
 
 Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via interpretador Python ou compilar suas próprias versões.
 
