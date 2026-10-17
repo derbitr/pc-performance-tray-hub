@@ -72,16 +72,41 @@ class HardwareMonitor:
             elif m_ryzen:
                 cpu_label = m_ryzen.group(1)
             else:
-                cpu_label = raw_name.split("@")[0].replace("Intel(R)", "").replace("AMD", "").replace("Processor", "").replace("CPU", "").strip()
+                cleaned = raw_name.replace("Intel(R)", "").replace("AMD", "").replace("Processor", "").replace("CPU", "").replace("(TM)", "").replace("(R)", "").split("@")[0].strip()
+                cleaned = " ".join(cleaned.split())
+                cpu_label = cleaned if cleaned else "Processador"
         except Exception:
             pass
 
-        ram_label = "16GB RAM"
+        ram_gb = 0
         try:
-            total_gb = round(psutil.virtual_memory().total / (1024**3))
-            ram_label = f"{total_gb}GB RAM"
+            ram_gb = round(psutil.virtual_memory().total / (1024 ** 3))
         except Exception:
             pass
+        if ram_gb <= 0:
+            try:
+                import ctypes
+                from ctypes import wintypes
+                class MEMORYSTATUSEX(ctypes.Structure):
+                    _fields_ = [
+                        ("dwLength", wintypes.DWORD),
+                        ("dwMemoryLoad", wintypes.DWORD),
+                        ("ullTotalPhys", ctypes.c_uint64),
+                        ("ullAvailPhys", ctypes.c_uint64),
+                        ("ullTotalPageFile", ctypes.c_uint64),
+                        ("ullAvailPageFile", ctypes.c_uint64),
+                        ("ullTotalVirtual", ctypes.c_uint64),
+                        ("ullAvailVirtual", ctypes.c_uint64),
+                        ("ullAvailExtendedVirtual", ctypes.c_uint64),
+                    ]
+                stat = MEMORYSTATUSEX()
+                stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+                if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+                    ram_gb = round(stat.ullTotalPhys / (1024 ** 3))
+            except Exception:
+                pass
+
+        ram_label = f"{ram_gb}GB RAM" if ram_gb > 0 else "RAM"
 
         return {
             "cpu": cpu_label,

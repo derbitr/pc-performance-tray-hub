@@ -116,6 +116,7 @@ class FlyoutWindow(QWidget):
             Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(DARK_STYLESHEET)
 
         self.power_mgr = PowerManager()
@@ -175,18 +176,23 @@ class FlyoutWindow(QWidget):
         self.main_pane_layout.setContentsMargins(0, 0, 0, 0)
         self.main_pane_layout.setSpacing(6)
 
-        header = QHBoxLayout()
+        header_card = QFrame()
+        header_card.setProperty("class", "GadgetCard")
+        header = QHBoxLayout(header_card)
+        header.setContentsMargins(8, 7, 8, 7)
+        header.setSpacing(6)
+
         icon_lbl = QLabel()
         icon_lbl.setPixmap(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 18))
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_box.setSpacing(1)
+        title_box.setSpacing(2)
         title_lbl = QLabel("PERFORMANCE TRAY HUB")
-        title_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.04em;")
+        title_lbl.setStyleSheet("font-size: 11px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.04em;")
         hw_info = HardwareMonitor.get_hardware_info()
-        sub_lbl = QLabel(hw_info["full_spec"])
-        sub_lbl.setStyleSheet("font-size: 10px; color: #64748B; font-family: 'Consolas', monospace;")
+        sub_lbl = QLabel(f" {hw_info['cpu']} • {hw_info['ram']} ")
+        sub_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8; background: #101B2E; border: 1px solid #1E3A8A; border-radius: 4px; padding: 1px 4px; font-family: 'Consolas', monospace;")
         title_box.addWidget(title_lbl)
         title_box.addWidget(sub_lbl)
         header.addLayout(title_box)
@@ -214,7 +220,7 @@ class FlyoutWindow(QWidget):
         idle_badge = QLabel("IDLE")
         idle_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #38BDF8; background: #0C121D; border: 1px solid #1E293B; padding: 2px 7px; border-radius: 10px;")
         header.addWidget(idle_badge)
-        self.main_pane_layout.addLayout(header)
+        self.main_pane_layout.addWidget(header_card)
 
         self.main_pane_layout.addWidget(self._build_power_gadget())
 
