@@ -25,13 +25,14 @@ from src.core.disk_cleaner import DiskCleaner
 from src.core.game_focus import GameFocusManager
 from src.core.gpu_monitor import GPUMonitor
 from src.core.fps_sync import FPSSyncManager
+from src.core.update_checker import CURRENT_VERSION, UpdateCheckWorker, open_releases_page
 from src.ui.sparkline_widget import SparklineWidget
 from src.assets.icons import (
     get_svg, ICON_BOLT, ICON_CPU, ICON_THERMOMETER, ICON_FAN,
     ICON_MEMORY, ICON_PAUSE, ICON_PLAY, ICON_SHIELD, ICON_NETWORK,
     ICON_PIN, ICON_PIN_ACTIVE, ICON_DRAG,
     ICON_TIMER, ICON_CLEAN_DISK, ICON_GAME, ICON_EYE,
-    ICON_GPU, ICON_EXPAND, ICON_COLLAPSE
+    ICON_GPU, ICON_EXPAND, ICON_COLLAPSE, ICON_UPDATE, ICON_DOWNLOAD
 )
 
 DARK_STYLESHEET = """
@@ -104,6 +105,7 @@ def create_svg_pixmap(svg_xml: str, size: int = 16) -> QPixmap:
 
 class FlyoutWindow(QWidget):
     scheme_changed = pyqtSignal(str)
+    update_available = pyqtSignal(dict)
 
     def __init__(self):
         super().__init__()
@@ -154,9 +156,13 @@ class FlyoutWindow(QWidget):
         self.telemetry_timer.timeout.connect(self._update_telemetry)
         self.telemetry_timer.start(1500)
 
+        self.update_worker: Optional[UpdateCheckWorker] = None
+        self.last_update_info: Dict[str, Any] = {}
+
         self._update_telemetry()
         self._update_power_pills()
         QTimer.singleShot(250, self._refresh_disk_health)
+        QTimer.singleShot(2500, self._check_for_updates)
 
     def _build_ui(self):
         root_layout = QHBoxLayout(self)
@@ -291,6 +297,7 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addWidget(self._build_gpu_card())
         self.side_wing_layout.addWidget(self._build_game_sync_card())
         self.side_wing_layout.addWidget(self._build_top_processes_card())
+        self.side_wing_layout.addWidget(self._build_update_card())
 
         self.wing_graph_slot = QVBoxLayout()
         self.wing_graph_slot.setContentsMargins(0, 0, 0, 0)
@@ -921,6 +928,103 @@ class FlyoutWindow(QWidget):
                 QTimer.singleShot(1800, lambda: self.btn_diag.setText("Diagnóstico"))
         except Exception:
             pass
+
+    def _build_update_card(self) -> QWidget:
+        card = QFrame()
+        card.setProperty("class", "GadgetCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setSpacing(5)
+
+        hdr = QHBoxLayout()
+        up_icon = QLabel()
+        up_icon.setPixmap(create_svg_pixmap(get_svg(ICON_UPDATE, "#38BDF8"), 14))
+        hdr.addWidget(up_icon)
+
+        title = QLabel("ATUALIZAÇÕES")
+        title.setStyleSheet("font-size: 9px; font-weight: 700; color: #64748B; letter-spacing: 0.05em;")
+        hdr.addWidget(title)
+        hdr.addStretch()
+
+        self.lbl_ver_badge = QLabel(f"v{CURRENT_VERSION}")
+        self.lbl_ver_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #94A3B8; background: #161F30; border: 1px solid #1E293B; border-radius: 3px; padding: 1px 5px; font-family: Consolas;")
+        hdr.addWidget(self.lbl_ver_badge)
+
+        self.btn_check_update = QPushButton("Verificar")
+        self.btn_check_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_check_update.setStyleSheet("font-size: 8px; color: #38BDF8; background: transparent; border: none; padding: 0px 4px;")
+        self.btn_check_update.clicked.connect(self._check_for_updates)
+        hdr.addWidget(self.btn_check_update)
+        lay.addLayout(hdr)
+
+        row_status = QHBoxLayout()
+        self.lbl_update_status = QLabel(f"Versão v{CURRENT_VERSION} instalada")
+        self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 600; color: #10B981;")
+        row_status.addWidget(self.lbl_update_status)
+        row_status.addStretch()
+        lay.addLayout(row_status)
+
+        self.lbl_update_detail = QLabel("Repositório oficial no GitHub")
+        self.lbl_update_detail.setStyleSheet("font-size: 9px; color: #64748B;")
+        lay.addWidget(self.lbl_update_detail)
+
+        self.btn_download_update = QPushButton(" Baixar Nova Versão")
+        self.btn_download_update.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_DOWNLOAD, "#FFFFFF"), 12)))
+        self.btn_download_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_download_update.setStyleSheet("font-size: 10px; font-weight: 700; color: #FFFFFF; background-color: #1E3A8A; border: 1px solid #38BDF8; border-radius: 4px; padding: 5px;")
+        self.btn_download_update.setVisible(False)
+        self.btn_download_update.clicked.connect(self._on_download_update)
+        lay.addWidget(self.btn_download_update)
+
+        return card
+
+    def _check_for_updates(self):
+        if self.update_worker and self.update_worker.isRunning():
+            return
+        if hasattr(self, 'lbl_update_status'):
+            self.lbl_update_status.setText("Verificando atualizações...")
+            self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 600; color: #38BDF8;")
+        if hasattr(self, 'btn_check_update'):
+            self.btn_check_update.setEnabled(False)
+
+        self.update_worker = UpdateCheckWorker()
+        self.update_worker.check_finished.connect(self._on_update_check_finished)
+        self.update_worker.start()
+
+    def _on_update_check_finished(self, result: Dict[str, Any]):
+        self.last_update_info = result
+        if hasattr(self, 'btn_check_update'):
+            self.btn_check_update.setEnabled(True)
+
+        if not hasattr(self, 'lbl_update_status'):
+            return
+
+        has_update = result.get("has_update", False)
+        latest = result.get("latest_version", CURRENT_VERSION)
+        msg = result.get("message", "")
+
+        if has_update:
+            self.lbl_update_status.setText(f"Nova versão v{latest} disponível!")
+            self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8;")
+            pub = result.get("published_at", "")
+            detail_txt = f"Lançada em {pub} no GitHub" if pub else "Disponível no GitHub Releases"
+            self.lbl_update_detail.setText(detail_txt)
+            self.btn_download_update.setVisible(True)
+            self.lbl_ver_badge.setText(f"v{CURRENT_VERSION} -> v{latest}")
+            self.lbl_ver_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #38BDF8; background: #0C1E36; border: 1px solid #38BDF8; border-radius: 3px; padding: 1px 5px; font-family: Consolas;")
+            self.update_available.emit(result)
+        else:
+            self.lbl_update_status.setText(msg)
+            color = "#10B981" if result.get("success") else "#94A3B8"
+            self.lbl_update_status.setStyleSheet(f"font-size: 10px; font-weight: 600; color: {color};")
+            self.lbl_update_detail.setText("O aplicativo está na versão estável mais recente.")
+            self.btn_download_update.setVisible(False)
+            self.lbl_ver_badge.setText(f"v{CURRENT_VERSION}")
+            self.lbl_ver_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #94A3B8; background: #161F30; border: 1px solid #1E293B; border-radius: 3px; padding: 1px 5px; font-family: Consolas;")
+
+    def _on_download_update(self):
+        url = self.last_update_info.get("release_url")
+        open_releases_page(url)
 
     def _toggle_side_wing(self):
         self.wing_expanded = not self.wing_expanded

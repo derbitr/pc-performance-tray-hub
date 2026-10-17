@@ -10,7 +10,7 @@ import os
 from src.ui.flyout_window import FlyoutWindow, create_svg_pixmap
 from src.assets.icons import (
     get_svg, ICON_BOLT, ICON_MEMORY, ICON_PAUSE, ICON_TIMER,
-    ICON_CLEAN_DISK, ICON_SETTINGS, ICON_SHIELD
+    ICON_CLEAN_DISK, ICON_SETTINGS, ICON_SHIELD, ICON_UPDATE
 )
 from src.ui.hotkey_worker import HotkeyWorker
 from src.core.power_manager import PowerManager
@@ -34,6 +34,7 @@ class PerformanceTrayApp:
         self.tray.setToolTip(f"Performance Tray Hub • {self.hw_info['cpu']}")
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.messageClicked.connect(self.flyout.show_or_toggle)
+        self.flyout.update_available.connect(self._on_update_available)
 
         self._build_context_menu()
 
@@ -158,6 +159,10 @@ class PerformanceTrayApp:
         act_diag.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_SETTINGS, "#38BDF8"), 14)))
         act_diag.triggered.connect(self.flyout._copy_diagnostic_report)
 
+        act_update = menu.addAction("Verificar Atualizações")
+        act_update.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_UPDATE, "#38BDF8"), 14)))
+        act_update.triggered.connect(self._on_check_update_menu)
+
         act_open = menu.addAction("Abrir Painel")
         act_open.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 14)))
         act_open.triggered.connect(self.flyout.show_or_toggle)
@@ -170,6 +175,22 @@ class PerformanceTrayApp:
     def _on_tray_activated(self, reason):
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
             self.flyout.show_or_toggle()
+
+    def _on_check_update_menu(self):
+        if not self.flyout.wing_expanded:
+            self.flyout._toggle_side_wing()
+        self.flyout._check_for_updates()
+        if not self.flyout.isVisible():
+            self.flyout.show_or_toggle()
+
+    def _on_update_available(self, info: dict):
+        latest = info.get("latest_version", "")
+        self.tray.showMessage(
+            "Atualização Disponível",
+            f"Nova versão v{latest} do PC Performance Hub já está disponível no GitHub.",
+            QSystemTrayIcon.MessageIcon.Information,
+            5000
+        )
 
     def _on_hotkey_ram(self):
         res = self.mem_mgr.clean_ram()

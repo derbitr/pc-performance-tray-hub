@@ -103,6 +103,11 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
 * **Congelamento Seguro de Aplicativos em Segundo Plano:**
   * Pausa launchers pesados (Steam, Epic Games, Discord, EA App, Spotify, Docker) atraves de `NtSuspendProcess` durante sessoes de jogo, liberando CPU e RAM sem fechar as sessoes ativas.
 
+* **Gadget de Atualizações do Sistema:**
+  * Monitora a versão instalada em relação aos lançamentos oficiais no GitHub via API assíncrona com zero bloqueio de interface.
+  * Informa o status de versão atual (`v1.0.0`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para baixar a versão mais recente diretamente da página oficial de Releases.
+  * Acessível tanto no gadget da gaveta lateral quanto através do menu de contexto da bandeja ("Verificar Atualizações").
+
 * **Diagnostico de Sistema em 1 Clique:**
   * Botao no rodape que gera e copia instantaneamente para a area de transferencia um relatorio completo das especificacoes do sistema (modelo de processador, frequencia, uso de threads, placa de video, memoria VRAM, integridade S.M.A.R.T. de discos e latencia de timer).
 
@@ -135,7 +140,8 @@ pc-performance-tray-hub/
 │   │   ├── network_optimizer.py# Limpeza de cache DNS e medicoes de latencia
 │   │   ├── power_manager.py    # Gerenciamento de esquemas de energia Win32
 │   │   ├── process_suspender.py# Suspensao e retomada de launchers
-│   │   └── timer_resolution.py # Reducao de input lag via temporizadores de alta precisao
+│   │   ├── timer_resolution.py # Reducao de input lag via temporizadores de alta precisao
+│   │   └── update_checker.py   # Verificacao assincrona de versoes no GitHub
 │   └── ui/
 │       ├── flyout_window.py    # Interface principal True Dark com expansao lateral
 │       ├── hotkey_worker.py    # Captura global de combinacoes de teclas do teclado

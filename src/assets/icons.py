@@ -111,5 +111,18 @@ ICON_COLLAPSE = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24
   <polyline points="15 18 9 12 15 6"></polyline>
 </svg>"""
 
+ICON_UPDATE = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+  <path d="M3 3v5h5"></path>
+  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+  <path d="M16 16h5v5"></path>
+</svg>"""
+
+ICON_DOWNLOAD = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+  <polyline points="7 10 12 15 17 10"></polyline>
+  <line x1="12" y1="15" x2="12" y2="3"></line>
+</svg>"""
+
 def get_svg(template: str, color: str = "#94A3B8") -> str:
     return template.format(color=color)
