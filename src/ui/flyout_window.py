@@ -139,6 +139,7 @@ class FlyoutWindow(QWidget):
         self.opacity = 100
         self.wing_expanded = False
         self.graph_location = "hub"
+        self.fan_location = "hub"
         self.show_cpu_graph = True
         self.show_ram_graph = False
         self.show_gpu_graph = False
@@ -147,6 +148,7 @@ class FlyoutWindow(QWidget):
 
         self._build_ui()
 
+        self._apply_fan_location(self.fan_location)
         self._apply_graph_location(self.graph_location)
         self._apply_wing_state(reposition=False)
         self._update_graph_visibility()
@@ -231,7 +233,10 @@ class FlyoutWindow(QWidget):
         self.hub_graph_slot.setSpacing(4)
         self.main_pane_layout.addLayout(self.hub_graph_slot)
 
-        self.main_pane_layout.addWidget(self._build_fan_gadget())
+        self.hub_fan_slot = QVBoxLayout()
+        self.hub_fan_slot.setContentsMargins(0, 0, 0, 0)
+        self.hub_fan_slot.setSpacing(4)
+        self.main_pane_layout.addLayout(self.hub_fan_slot)
 
         self.main_pane_layout.addLayout(self._build_quick_actions())
 
@@ -301,6 +306,12 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addLayout(wing_header)
 
         self.side_wing_layout.addWidget(self._build_gpu_card())
+
+        self.wing_fan_slot = QVBoxLayout()
+        self.wing_fan_slot.setContentsMargins(0, 0, 0, 0)
+        self.wing_fan_slot.setSpacing(4)
+        self.side_wing_layout.addLayout(self.wing_fan_slot)
+
         self.side_wing_layout.addWidget(self._build_game_sync_card())
         self.side_wing_layout.addWidget(self._build_top_processes_card())
         self.side_wing_layout.addWidget(self._build_update_card())
@@ -313,6 +324,7 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addStretch()
         root_layout.addWidget(self.side_wing)
 
+        self.fan_card = self._build_fan_gadget()
         self._build_graph_dashboard()
 
     def _build_graph_dashboard(self):
@@ -441,6 +453,43 @@ class FlyoutWindow(QWidget):
                 y = geo.bottom() - self.height() - 12
                 self.move(self.x(), y)
 
+    def _set_fan_location(self, loc: str):
+        if loc not in ("hub", "wing"):
+            return
+        self.fan_location = loc
+        self._apply_fan_location(loc)
+        self._save_config()
+
+    def _apply_fan_location(self, loc: str):
+        if not hasattr(self, 'fan_card') or not hasattr(self, 'hub_fan_slot') or not hasattr(self, 'wing_fan_slot'):
+            return
+        if loc == "hub":
+            self.wing_fan_slot.removeWidget(self.fan_card)
+            self.hub_fan_slot.addWidget(self.fan_card)
+            self.fan_card.setParent(self.main_pane)
+            self.fan_card.show()
+            if hasattr(self, 'btn_fan_loc_hub') and hasattr(self, 'btn_fan_loc_wing'):
+                self.btn_fan_loc_hub.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 8px; padding: 2px 6px;")
+                self.btn_fan_loc_wing.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 8px; padding: 2px 6px;")
+        else:
+            self.hub_fan_slot.removeWidget(self.fan_card)
+            self.wing_fan_slot.addWidget(self.fan_card)
+            self.fan_card.setParent(self.side_wing)
+            self.fan_card.show()
+            if hasattr(self, 'btn_fan_loc_hub') and hasattr(self, 'btn_fan_loc_wing'):
+                self.btn_fan_loc_wing.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 8px; padding: 2px 6px;")
+                self.btn_fan_loc_hub.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 8px; padding: 2px 6px;")
+            if not getattr(self, "wing_expanded", False):
+                self._toggle_side_wing()
+
+        self.adjustSize()
+        if self.custom_pos is None and self.isVisible():
+            screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                y = geo.bottom() - self.height() - 12
+                self.move(self.x(), y)
+
     def _build_power_gadget(self) -> QWidget:
         card = QFrame()
         card.setProperty("class", "GadgetCard")
@@ -547,15 +596,34 @@ class FlyoutWindow(QWidget):
         fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#F59E0B"), 14))
         hdr.addWidget(fan_icon)
         gpu_name = self.gpu_monitor.primary_gpu.get("name", "GPU")
-        lbl = QLabel(f"Ventoinha da GPU ({gpu_name[:14]})")
+        lbl = QLabel(f"Ventoinha da GPU ({gpu_name[:12]})")
         lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #94A3B8;")
         hdr.addWidget(lbl)
         hdr.addStretch()
 
+        lbl_pos = QLabel("Local:")
+        lbl_pos.setStyleSheet("font-size: 9px; color: #475569;")
+        hdr.addWidget(lbl_pos)
+
+        self.btn_fan_loc_hub = QPushButton("Hub")
+        self.btn_fan_loc_hub.setToolTip("Fixa a ventoinha no painel principal")
+        self.btn_fan_loc_hub.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_loc_hub.clicked.connect(lambda: self._set_fan_location("hub"))
+        hdr.addWidget(self.btn_fan_loc_hub)
+
+        self.btn_fan_loc_wing = QPushButton("Lateral")
+        self.btn_fan_loc_wing.setToolTip("Move a ventoinha para o painel lateral de gadgets")
+        self.btn_fan_loc_wing.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_loc_wing.clicked.connect(lambda: self._set_fan_location("wing"))
+        hdr.addWidget(self.btn_fan_loc_wing)
+        layout.addLayout(hdr)
+
+        info_row = QHBoxLayout()
         self.lbl_fan_info = QLabel("Auto • 1.650 RPM")
         self.lbl_fan_info.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
-        hdr.addWidget(self.lbl_fan_info)
-        layout.addLayout(hdr)
+        info_row.addWidget(self.lbl_fan_info)
+        info_row.addStretch()
+        layout.addLayout(info_row)
 
         pills = QHBoxLayout()
         pills.setSpacing(4)
@@ -583,7 +651,7 @@ class FlyoutWindow(QWidget):
         slider_box = QHBoxLayout()
         self.slider_fan = QSlider(Qt.Orientation.Horizontal)
         self.slider_fan.setRange(30, 100)
-        self.slider_fan.setValue(50)
+        self.slider_fan.setValue(getattr(self.gpu_monitor, "fan_speed", 50))
         self.slider_fan.valueChanged.connect(self._on_fan_slider_changed)
         slider_box.addWidget(self.slider_fan)
         layout.addLayout(slider_box)
@@ -1339,6 +1407,7 @@ class FlyoutWindow(QWidget):
         self.gpu_monitor.set_fan_mode(mode)
         self._update_gpu_fan_pills()
         self._update_telemetry()
+        self._save_config()
 
     def _update_gpu_fan_pills(self):
         if not hasattr(self, 'btn_fan_auto'):
@@ -1360,6 +1429,7 @@ class FlyoutWindow(QWidget):
         self.gpu_monitor.set_fan_speed(val)
         self._update_gpu_fan_pills()
         self._update_telemetry()
+        self._save_config()
 
     def _on_clean_ram(self):
         res = self.mem_mgr.clean_ram()
@@ -1446,9 +1516,16 @@ class FlyoutWindow(QWidget):
                     self.opacity = cfg.get("opacity", 100)
                     self.wing_expanded = cfg.get("wing_expanded", False)
                     self.graph_location = cfg.get("graph_location", "hub")
+                    self.fan_location = cfg.get("fan_location", "hub")
                     self.show_cpu_graph = cfg.get("show_cpu_graph", True)
                     self.show_ram_graph = cfg.get("show_ram_graph", False)
                     self.show_gpu_graph = cfg.get("show_gpu_graph", False)
+                    fan_mode = cfg.get("fan_mode", "auto")
+                    fan_speed = cfg.get("fan_speed", 50)
+                    if hasattr(self, 'gpu_monitor'):
+                        self.gpu_monitor.set_fan_mode(fan_mode)
+                        if fan_mode == "manual":
+                            self.gpu_monitor.set_fan_speed(fan_speed)
                     if "x" in cfg and "y" in cfg:
                         self.custom_pos = QPoint(cfg["x"], cfg["y"])
             except Exception:
@@ -1463,6 +1540,9 @@ class FlyoutWindow(QWidget):
                 "y": self.pos().y(),
                 "wing_expanded": self.wing_expanded,
                 "graph_location": self.graph_location,
+                "fan_location": getattr(self, "fan_location", "hub"),
+                "fan_mode": self.gpu_monitor.fan_mode if hasattr(self, 'gpu_monitor') else "auto",
+                "fan_speed": self.gpu_monitor.fan_speed if hasattr(self, 'gpu_monitor') else 50,
                 "show_cpu_graph": self.show_cpu_graph,
                 "show_ram_graph": self.show_ram_graph,
                 "show_gpu_graph": self.show_gpu_graph
