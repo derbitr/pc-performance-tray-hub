@@ -6,16 +6,21 @@ Um otimizador de desktop ultraleve (< 20MB de RAM, 0.0% CPU em idle) com interfa
 
 ## Recursos Principais
 
-* **Gaveta Lateral Expansível Estilo Jogos IDLE:** Em vez de abrir janelas modais sobrepostas, o hub se expande horizontalmente para a lateral exibindo um painel de telemetria estendido. Possui detecção adaptativa das bordas da tela: quando acoplado no canto direito perto do relógio, expande-se suavemente para a esquerda em direção ao centro da tela.
-* **Detecção Automática de Placa de Vídeo (GPU):** Identifica adaptadores dedicados (NVIDIA, AMD) e gráficos integrados (Intel HD Graphics) via Registro do Windows com custo zero de CPU, monitorando carga percentual, temperatura e alocação de memória de vídeo (VRAM).
-* **Gráficos Visuais Customizáveis (Últimos 30s):** Traçado contínuo vetorial em tempo real via `QPainter` com seletores tipo pílula para ativar ou ocultar cada gráfico individualmente:
+* **Gráficos Visuais Customizáveis (Na 1ª Janela ou na Lateral):** Traçado contínuo vetorial em tempo real via `QPainter` com seletores tipo pílula para ativar ou ocultar cada gráfico individualmente:
+  * **Exibição Flexível:** Os gráficos podem aparecer diretamente na **Primeira Janela (Hub)** ou ser movidos para a **Gaveta Lateral** com um único clique (`Local: [ Hub ] [ Lateral ]`).
   * **CPU & Temperatura:** Carga de processamento (Ciano `#38BDF8`) e temperatura em graus Celsius (Esmeralda `#10B981`).
   * **Memória RAM:** Uso da memória física em porcentagem (Roxo `#A855F7`) e memória livre em gigabytes (Ciano `#38BDF8`).
   * **Placa de Vídeo & VRAM:** Carga de computação gráfica (Âmbar `#F59E0B`) e uso de memória de vídeo (Rosa `#F43F5E`).
+* **Gaveta Lateral Expansível Estilo Jogos IDLE:** Em vez de abrir janelas modais sobrepostas, o hub se expande horizontalmente para a lateral exibindo a telemetria estendida de hardware e jogos. Possui detecção adaptativa das bordas da tela: quando acoplado no canto direito perto do relógio, expande-se suavemente para a esquerda em direção ao centro da tela.
+* **Detecção Automática de Placa de Vídeo (GPU):** Identifica adaptadores dedicados (NVIDIA, AMD) e gráficos integrados (Intel HD Graphics) via Registro do Windows com custo zero de CPU, monitorando carga percentual, temperatura e alocação de memória de vídeo (VRAM).
+* **Sincronização de Jogos e FPS (Anti-Cheat Seguro):**
+  * Detecta dinamicamente o jogo em tela cheia via Win32 API.
+  * Eleva a prioridade do jogo para `HIGH_PRIORITY_CLASS` e aplica `EcoQoS` em processos secundários.
+  * **Arquitetura Anti-Cheat Safe:** Não realiza injeção intrusiva de DLLs nos jogos para evitar risco de banimentos em jogos competitivos (Valorant Vanguard, Easy Anti-Cheat, BattlEye, VAC).
+  * Suporta leitura de FPS instantânea via Memória Compartilhada do RTSS (RivaTuner Statistics Server) com 0% de sobrecarga quando instalado.
 * **Modo HUD Livre / Arrastável:** Pode ser fixado em qualquer canto da tela (Modo Alfinete) com controle de opacidade (60% a 100%) ou recolhido discretamente na System Tray ao lado do relógio.
 * **Perfis de Energia Nativos:** Alternância rápida entre *Turbo Max* (Desempenho Máximo nativo do processador), *Equilibrado* e *Silencioso*.
 * **Redutor de Latência do Windows (Timer 0.5ms):** Reduz o timer de eventos do kernel de 15.6ms para 0.5ms via `winmm.dll:timeBeginPeriod`, diminuindo o input lag do mouse e microstutters.
-* **Modo Game Focus:** Detecta o jogo ativo em tela cheia e eleva sua prioridade para `HIGH_PRIORITY_CLASS`, aplicando `EcoQoS` em processos secundários de fundo.
 * **Limpeza Inteligente de RAM e SSD:**
   * Purga o *Working Set* e a *Standby List* da memória sem fechar nenhum app.
   * Remove resíduos temporários de `%TEMP%` preservando sessões e senhas do navegador.
@@ -36,6 +41,7 @@ pc-performance-tray-hub/
 │   ├── core/
 │   │   ├── autostart.py        # Registro no Agendador de Tarefas do Windows
 │   │   ├── disk_cleaner.py     # Limpeza não-destrutiva de arquivos temporários
+│   │   ├── fps_sync.py         # Sincronização segura de jogos e leitura RTSS
 │   │   ├── game_focus.py       # Prioridade de CPU e EcoQoS para jogos
 │   │   ├── gpu_monitor.py      # Detecção e telemetria de GPUs dedicadas/integradas
 │   │   ├── hardware_monitor.py # Leitura de clock, temperatura e Super I/O
