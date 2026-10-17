@@ -79,11 +79,14 @@ class HardwareMonitor:
                 raw_name = str(raw_name).strip()
             import re
             m_ultra = re.search(r"Ultra\s+\d\s+\w+", raw_name, re.I)
-            m_c2 = re.search(r"Core\(TM\)2\s+(Duo|Quad)\s+(\w+)", raw_name, re.I)
+            m_c2 = re.search(r"Core\(TM\)2\s+(Duo|Quad|Extreme)\s+(?:CPU\s+)?(\w+)", raw_name, re.I)
             m_new_core = re.search(r"Core\s+([3579]\s+\w+)", raw_name, re.I)
-            m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
-            m_ryzen = re.search(r"(Ryzen\s+(?:Threadripper\s+)?\d\s+\w+)", raw_name, re.I)
-            m_xeon = re.search(r"(Xeon(?:\(R\))?\s+(?:CPU\s+)?([A-Za-z0-9\-]+(?:\s+v\d+)?))", raw_name, re.I)
+            m_intel = re.search(r"(i\d(?:-|\s+(?:CPU\s+)?)\w+)", raw_name, re.I)
+            m_tr = re.search(r"(Ryzen\s+Threadripper(?:\s+PRO)?\s+\w+)", raw_name, re.I)
+            m_ai = re.search(r"(Ryzen\s+AI\s+\d\s+[A-Za-z0-9\-]+(?:\s+[A-Za-z0-9\-]+)?)", raw_name, re.I)
+            m_ryzen = re.search(r"(Ryzen\s+[3579]\s+\w+)", raw_name, re.I)
+            m_epyc = re.search(r"EPYC\s+(?:CPU\s+)?([A-Za-z0-9\-]+)", raw_name, re.I)
+            m_xeon = re.search(r"(Xeon(?:\(R\))?\s+(?:CPU\s+)?((?:Bronze|Silver|Gold|Platinum)\s+[A-Za-z0-9\-]+|[A-Za-z0-9\-]+(?:\s+v\d+)?))", raw_name, re.I)
             m_athlon = re.search(r"(Athlon\s+\w+)", raw_name, re.I)
             m_pentium = re.search(r"(Pentium(?:\(R\))?\s+(?:Gold\s+)?\w+)", raw_name, re.I)
             m_celeron = re.search(r"(Celeron(?:\(R\))?\s+\w+)", raw_name, re.I)
@@ -94,9 +97,17 @@ class HardwareMonitor:
             elif m_new_core:
                 cpu_label = f"Core {m_new_core.group(1)}"
             elif m_intel:
-                cpu_label = f"Core {m_intel.group(1)}"
+                val = m_intel.group(1)
+                val = re.sub(r"\s+CPU\s+", " ", val, flags=re.I)
+                cpu_label = f"Core {val}"
+            elif m_tr:
+                cpu_label = m_tr.group(1)
+            elif m_ai:
+                cpu_label = m_ai.group(1)
             elif m_ryzen:
                 cpu_label = m_ryzen.group(1)
+            elif m_epyc:
+                cpu_label = f"EPYC {m_epyc.group(1)}"
             elif m_xeon:
                 cpu_label = f"Xeon {m_xeon.group(2)}"
             elif m_athlon:
