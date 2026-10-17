@@ -37,7 +37,7 @@ pc-performance-tray-hub/
 ├── app_icon.ico                # Ícone do aplicativo
 ├── src/
 │   ├── assets/
-│   │   └── icons.py            # Ícones vetoriais SVG (Zero emojis)
+│   │   └── icons.py            # Ícones vetoriais SVG 
 │   ├── core/
 │   │   ├── autostart.py        # Registro no Agendador de Tarefas do Windows
 │   │   ├── disk_cleaner.py     # Limpeza não-destrutiva de arquivos temporários
