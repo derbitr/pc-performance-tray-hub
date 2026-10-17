@@ -96,12 +96,16 @@ def get_bundle_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 def create_windows_shortcut(target_exe: str, lnk_path: str, work_dir: str, icon_path: str):
+    lnk_esc = lnk_path.replace("'", "''")
+    target_esc = target_exe.replace("'", "''")
+    work_esc = work_dir.replace("'", "''")
+    icon_esc = icon_path.replace("'", "''")
     script = (
         f"$ws = New-Object -ComObject WScript.Shell; "
-        f"$s = $ws.CreateShortcut('{lnk_path}'); "
-        f"$s.TargetPath = '{target_exe}'; "
-        f"$s.WorkingDirectory = '{work_dir}'; "
-        f"$s.IconLocation = '{icon_path},0'; "
+        f"$s = $ws.CreateShortcut('{lnk_esc}'); "
+        f"$s.TargetPath = '{target_esc}'; "
+        f"$s.WorkingDirectory = '{work_esc}'; "
+        f"$s.IconLocation = '{icon_esc},0'; "
         f"$s.Save()"
     )
     subprocess.run(

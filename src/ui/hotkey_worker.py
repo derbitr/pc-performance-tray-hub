@@ -89,3 +89,9 @@ class HotkeyWorker(QThread):
             except Exception:
                 pass
         self.wait(500)
+        if self.isRunning():
+            try:
+                self.terminate()
+                self.wait(100)
+            except Exception:
+                pass

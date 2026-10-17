@@ -6,7 +6,7 @@ SCHEMES = {
     "turbo": {
         "id": "turbo",
         "name": "Turbo Max",
-        "guid": "261561f2-df2e-4c08-be8e-41f4c8eaefb6",
+        "guid": "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c",
         "desc": "Clock máximo contínuo, resposta instantânea para jogos e trabalho pesado."
     },
     "balanced": {
@@ -89,4 +89,17 @@ class PowerManager:
             )
             return True
         except Exception:
+            if scheme_key == "turbo" and guid != "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c":
+                try:
+                    subprocess.run(
+                        ["powercfg", "/setactive", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"],
+                        check=True,
+                        capture_output=True,
+                        timeout=4.0,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+                    SCHEMES["turbo"]["guid"] = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+                    return True
+                except Exception:
+                    pass
             return False

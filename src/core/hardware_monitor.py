@@ -6,6 +6,15 @@ class HardwareMonitor:
     def __init__(self):
         self._target_fan_speed = 100
         self._base_ambient = 32.0
+        self._base_mhz = 2500.0
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                mhz, _ = winreg.QueryValueEx(key, "~MHz")
+                if mhz and float(mhz) > 100.0:
+                    self._base_mhz = float(mhz)
+        except Exception:
+            pass
         try:
             psutil.cpu_percent(interval=None)
         except Exception:
@@ -18,7 +27,7 @@ class HardwareMonitor:
             freq = psutil.cpu_freq()
         except Exception:
             pass
-        cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else 3600.0)
+        cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else self._base_mhz)
         clock_ghz = round(cur_freq / 1000.0, 2)
 
         temp_c = int(round(self._base_ambient + (cpu_usage * 0.42)))
@@ -65,12 +74,27 @@ class HardwareMonitor:
                     raw_name = raw_name.decode("utf-8", errors="ignore")
                 raw_name = str(raw_name).strip()
             import re
+            m_ultra = re.search(r"Ultra\s+\d\s+\w+", raw_name, re.I)
             m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
-            m_ryzen = re.search(r"(Ryzen\s+\d\s+\w+)", raw_name, re.I)
-            if m_intel:
+            m_ryzen = re.search(r"(Ryzen\s+(?:Threadripper\s+)?\d\s+\w+)", raw_name, re.I)
+            m_xeon = re.search(r"(Xeon(?:\(R\))?\s+(?:CPU\s+)?([A-Za-z0-9\-]+(?:\s+v\d+)?))", raw_name, re.I)
+            m_athlon = re.search(r"(Athlon\s+\w+)", raw_name, re.I)
+            m_pentium = re.search(r"(Pentium(?:\(R\))?\s+(?:Gold\s+)?\w+)", raw_name, re.I)
+            m_celeron = re.search(r"(Celeron(?:\(R\))?\s+\w+)", raw_name, re.I)
+            if m_ultra:
+                cpu_label = f"Core {m_ultra.group(0)}"
+            elif m_intel:
                 cpu_label = f"Core {m_intel.group(1)}"
             elif m_ryzen:
                 cpu_label = m_ryzen.group(1)
+            elif m_xeon:
+                cpu_label = f"Xeon {m_xeon.group(2)}"
+            elif m_athlon:
+                cpu_label = m_athlon.group(1)
+            elif m_pentium:
+                cpu_label = m_pentium.group(0).replace("(R)", "").strip()
+            elif m_celeron:
+                cpu_label = m_celeron.group(0).replace("(R)", "").strip()
             else:
                 cleaned = raw_name.replace("Intel(R)", "").replace("AMD", "").replace("Processor", "").replace("CPU", "").replace("(TM)", "").replace("(R)", "").split("@")[0].strip()
                 cleaned = " ".join(cleaned.split())

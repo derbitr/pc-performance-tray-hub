@@ -53,7 +53,10 @@ class GPUMonitor:
                                     except Exception:
                                         pass
 
-                                is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx", "arc"))
+                                nl = name.lower()
+                                is_discrete = any(brand in nl for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx", "arc"))
+                                if any(igpu in nl for igpu in ("intel(r) uhd", "intel(r) hd", "intel(r) iris", "vega 3", "vega 6", "vega 7", "vega 8", "vega 11", "radeon(tm) graphics", "radeon graphics")):
+                                    is_discrete = False
                                 gpus.append({
                                     "name": name,
                                     "vram_mb": vram_mb,
@@ -70,7 +73,7 @@ class GPUMonitor:
         if not gpus:
             gpus = [{"name": "Adaptador de Vídeo Padrão", "vram_mb": 1024, "driver": "WDDM", "is_discrete": False}]
 
-        sorted_gpus = sorted(gpus, key=lambda g: g["is_discrete"], reverse=True)
+        sorted_gpus = sorted(gpus, key=lambda g: (g["is_discrete"], g.get("vram_mb", 0)), reverse=True)
         self.gpus = sorted_gpus
         self.primary_gpu = sorted_gpus[0]
 

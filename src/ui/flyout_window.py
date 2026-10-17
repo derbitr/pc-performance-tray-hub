@@ -493,7 +493,7 @@ class FlyoutWindow(QWidget):
         c_top.addWidget(c_icon)
         c_lay.addLayout(c_top)
 
-        self.lbl_clock = QLabel("3.60 GHz")
+        self.lbl_clock = QLabel(f"{self.hw_monitor._base_mhz / 1000.0:.2f} GHz")
         self.lbl_clock.setStyleSheet("font-size: 16px; font-weight: 800; color: #F8FAFC; font-family: 'Consolas', monospace;")
         c_lay.addWidget(self.lbl_clock)
 
@@ -520,7 +520,7 @@ class FlyoutWindow(QWidget):
         t_top.addWidget(t_icon)
         t_lay.addLayout(t_top)
 
-        self.lbl_temp = QLabel("54°C")
+        self.lbl_temp = QLabel("--°C")
         self.lbl_temp.setStyleSheet("font-size: 16px; font-weight: 800; color: #F8FAFC; font-family: 'Consolas', monospace;")
         t_lay.addWidget(self.lbl_temp)
 
@@ -936,7 +936,10 @@ class FlyoutWindow(QWidget):
 
             cb = QApplication.clipboard()
             if cb:
-                cb.setText(report)
+                try:
+                    cb.setText(report)
+                except Exception:
+                    pass
 
             if hasattr(self, 'btn_diag'):
                 self.btn_diag.setText("Copiado!")
@@ -1383,6 +1386,22 @@ class FlyoutWindow(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             if hasattr(self, "_drag_pos"):
                 del self._drag_pos
+            screen = None
+            for s in QApplication.screens():
+                if s.geometry().contains(self.pos()):
+                    screen = s
+                    break
+            if not screen:
+                screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                curr_w = self.width()
+                curr_h = self.height()
+                clamped_x = max(geo.left() + 8, min(self.x(), geo.right() - curr_w - 8))
+                clamped_y = max(geo.top() + 8, min(self.y(), geo.bottom() - curr_h - 8))
+                if clamped_x != self.x() or clamped_y != self.y():
+                    self.move(clamped_x, clamped_y)
+                self.custom_pos = self.pos()
             self._save_config()
             event.accept()
 
@@ -1403,8 +1422,8 @@ class FlyoutWindow(QWidget):
                 geo = screen.availableGeometry()
                 curr_w = self.width()
                 curr_h = self.height()
-                clamped_x = max(geo.left(), min(self.custom_pos.x(), geo.right() - curr_w))
-                clamped_y = max(geo.top(), min(self.custom_pos.y(), geo.bottom() - curr_h))
+                clamped_x = max(geo.left() + 8, min(self.custom_pos.x(), geo.right() - curr_w - 8))
+                clamped_y = max(geo.top() + 8, min(self.custom_pos.y(), geo.bottom() - curr_h - 8))
                 self.move(clamped_x, clamped_y)
                 return
         self.reset_to_tray_position()
@@ -1415,8 +1434,8 @@ class FlyoutWindow(QWidget):
             return
         geo = screen.availableGeometry()
         curr_width = 770 if getattr(self, "wing_expanded", False) else 385
-        x = geo.right() - curr_width - 12
-        y = geo.bottom() - self.height() - 12
+        x = max(geo.left() + 8, geo.right() - curr_width - 12)
+        y = max(geo.top() + 8, geo.bottom() - self.height() - 12)
         self.move(x, y)
         self.custom_pos = None
         self._save_config()

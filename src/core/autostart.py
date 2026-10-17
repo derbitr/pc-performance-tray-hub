@@ -23,7 +23,7 @@ class AutoStartManager:
     def register(target_path: str = None) -> bool:
         if not target_path:
             if getattr(sys, "frozen", False):
-                cmd_target = os.path.abspath(sys.executable)
+                cmd_target = f'"{os.path.abspath(sys.executable)}"'
             else:
                 pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
                 if not os.path.exists(pythonw):
@@ -31,7 +31,8 @@ class AutoStartManager:
                 main_py = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
                 cmd_target = f'"{pythonw}" "{main_py}"'
         else:
-            cmd_target = os.path.abspath(target_path)
+            raw = os.path.abspath(target_path)
+            cmd_target = f'"{raw}"' if not (raw.startswith('"') and raw.endswith('"')) else raw
 
         try:
             cmd = [
