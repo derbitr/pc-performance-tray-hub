@@ -103,6 +103,20 @@ def create_svg_pixmap(svg_xml: str, size: int = 16) -> QPixmap:
     painter.end()
     return pixmap
 
+class SafeSlider(QSlider):
+    def __init__(self, orientation=Qt.Orientation.Horizontal, parent=None):
+        super().__init__(orientation, parent)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def keyPressEvent(self, event):
+        event.ignore()
+
+    def keyReleaseEvent(self, event):
+        event.ignore()
+
+    def wheelEvent(self, event):
+        event.ignore()
+
 class FlyoutWindow(QWidget):
     scheme_changed = pyqtSignal(str)
     update_available = pyqtSignal(dict)
@@ -649,7 +663,7 @@ class FlyoutWindow(QWidget):
         layout.addLayout(pills)
 
         slider_box = QHBoxLayout()
-        self.slider_fan = QSlider(Qt.Orientation.Horizontal)
+        self.slider_fan = SafeSlider(Qt.Orientation.Horizontal)
         self.slider_fan.setRange(30, 100)
         self.slider_fan.setValue(getattr(self.gpu_monitor, "fan_speed", 50))
         self.slider_fan.valueChanged.connect(self._on_fan_slider_changed)
@@ -726,7 +740,7 @@ class FlyoutWindow(QWidget):
         lbl_op.setStyleSheet("font-size: 10px; color: #94A3B8;")
         row1.addWidget(lbl_op)
 
-        self.slider_opacity = QSlider(Qt.Orientation.Horizontal)
+        self.slider_opacity = SafeSlider(Qt.Orientation.Horizontal)
         self.slider_opacity.setRange(60, 100)
         self.slider_opacity.setValue(self.opacity)
         self.slider_opacity.valueChanged.connect(self._on_opacity_slider_changed)
@@ -1334,23 +1348,7 @@ class FlyoutWindow(QWidget):
         self.bar_temp.setValue(metrics['temp_c'])
         self.bar_temp.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {metrics['temp_color']}; }}")
 
-        fan_speed = gpu_info["fan_speed_percent"]
-        fan_rpm = gpu_info["fan_rpm"]
-        fan_mode = gpu_info["fan_mode"]
-
-        if hasattr(self, 'lbl_fan_info'):
-            if fan_mode == "auto":
-                self.lbl_fan_info.setText(f"Auto ({fan_speed}%) • {fan_rpm:,} RPM".replace(",", "."))
-            else:
-                self.lbl_fan_info.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
-
-        if hasattr(self, 'lbl_card_gpu_fan'):
-            self.lbl_card_gpu_fan.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
-
-        if hasattr(self, 'slider_fan') and fan_mode == "auto":
-            self.slider_fan.blockSignals(True)
-            self.slider_fan.setValue(fan_speed)
-            self.slider_fan.blockSignals(False)
+        self._update_fan_ui(gpu_info)
 
         if hasattr(self, 'lbl_gpu_name'):
             self.lbl_gpu_name.setText(gpu_info['name'])
@@ -1406,8 +1404,30 @@ class FlyoutWindow(QWidget):
     def _set_gpu_fan_preset(self, mode: str):
         self.gpu_monitor.set_fan_mode(mode)
         self._update_gpu_fan_pills()
-        self._update_telemetry()
+        self._update_fan_ui()
         self._save_config()
+
+    def _update_fan_ui(self, gpu_info: Optional[Dict[str, Any]] = None):
+        if gpu_info is None:
+            gpu_info = self.gpu_monitor.get_gpu_info()
+        fan_speed = gpu_info["fan_speed_percent"]
+        fan_rpm = gpu_info["fan_rpm"]
+        fan_mode = gpu_info["fan_mode"]
+
+        if hasattr(self, 'lbl_fan_info'):
+            if fan_mode == "auto":
+                self.lbl_fan_info.setText(f"Auto ({fan_speed}%) • {fan_rpm:,} RPM".replace(",", "."))
+            else:
+                self.lbl_fan_info.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'lbl_card_gpu_fan'):
+            self.lbl_card_gpu_fan.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'slider_fan'):
+            if fan_mode in ("auto", "silent", "gaming", "max"):
+                self.slider_fan.blockSignals(True)
+                self.slider_fan.setValue(fan_speed)
+                self.slider_fan.blockSignals(False)
 
     def _update_gpu_fan_pills(self):
         if not hasattr(self, 'btn_fan_auto'):
@@ -1428,7 +1448,7 @@ class FlyoutWindow(QWidget):
     def _on_fan_slider_changed(self, val: int):
         self.gpu_monitor.set_fan_speed(val)
         self._update_gpu_fan_pills()
-        self._update_telemetry()
+        self._update_fan_ui()
         self._save_config()
 
     def _on_clean_ram(self):

@@ -119,7 +119,7 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
 
 * **Gadget de Atualizações do Sistema:**
   * Monitora a versão instalada em relação aos lançamentos oficiais no GitHub via API assíncrona com zero bloqueio de interface.
-  * Informa o status de versão atual (`v1.0.2`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para baixar a versão mais recente diretamente da página oficial de Releases.
+  * Informa o status de versão atual (`v1.0.3`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para baixar a versão mais recente diretamente da página oficial de Releases.
   * Acessível tanto no gadget da gaveta lateral quanto através do menu de contexto da bandeja ("Verificar Atualizações").
 
 * **Diagnóstico de Sistema em 1 Clique:**
