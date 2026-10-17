@@ -19,41 +19,41 @@ class GPUMonitor:
         gpus = []
         base_path = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
         try:
-            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_path)
-            for i in range(20):
-                try:
-                    sub = winreg.EnumKey(key, i)
-                    sub_key = winreg.OpenKey(key, sub)
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_path) as key:
+                for i in range(20):
                     try:
-                        name, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
-                        name = name.strip()
-                        
-                        # Tenta ler versão do driver
-                        driver_ver = "Padrão"
-                        try:
-                            driver_ver, _ = winreg.QueryValueEx(sub_key, "DriverVersion")
-                        except Exception:
-                            pass
+                        sub = winreg.EnumKey(key, i)
+                        with winreg.OpenKey(key, sub) as sub_key:
+                            try:
+                                name, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
+                                name = name.strip()
+                                
+                                # Tenta ler versão do driver
+                                driver_ver = "Padrão"
+                                try:
+                                    driver_ver, _ = winreg.QueryValueEx(sub_key, "DriverVersion")
+                                except Exception:
+                                    pass
 
-                        # Tenta ler quantidade de memória de vídeo (VRAM)
-                        vram_mb = 1024
-                        try:
-                            mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.qwMemorySize")
-                            vram_mb = max(128, round(mem / (1024 ** 2)))
-                        except Exception:
-                            pass
+                                # Tenta ler quantidade de memória de vídeo (VRAM)
+                                vram_mb = 1024
+                                try:
+                                    mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.qwMemorySize")
+                                    vram_mb = max(128, round(mem / (1024 ** 2)))
+                                except Exception:
+                                    pass
 
-                        is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx"))
-                        gpus.append({
-                            "name": name,
-                            "vram_mb": vram_mb,
-                            "driver": driver_ver,
-                            "is_discrete": is_discrete
-                        })
-                    except Exception:
-                        pass
-                except OSError:
-                    break
+                                is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx"))
+                                gpus.append({
+                                    "name": name,
+                                    "vram_mb": vram_mb,
+                                    "driver": driver_ver,
+                                    "is_discrete": is_discrete
+                                })
+                            except Exception:
+                                pass
+                    except OSError:
+                        break
         except Exception:
             pass
 
@@ -68,7 +68,7 @@ class GPUMonitor:
     def get_gpu_info(self) -> Dict[str, Any]:
         """Retorna telemetria atual da placa de vídeo primária."""
         name = self.primary_gpu.get("name", "GPU")
-        vram_total = self.primary_gpu.get("vram_mb", 1024)
+        vram_total = max(1, self.primary_gpu.get("vram_mb", 1024))
 
         # Estimativa de telemetria suave proporcional à carga de tela
         cpu_load = psutil.cpu_percent(interval=None)

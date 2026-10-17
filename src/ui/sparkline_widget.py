@@ -81,7 +81,7 @@ class SparklineWidget(QWidget):
         plot_h = plot_bottom - plot_top
 
         n = len(self.history_1)
-        if n < 2:
+        if plot_w <= 10 or plot_h <= 10 or n < 2:
             painter.end()
             return
 

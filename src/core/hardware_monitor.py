@@ -66,9 +66,9 @@ class HardwareMonitor:
         cpu_label = "Processador"
         try:
             import winreg
-            key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0")
-            raw_name, _ = winreg.QueryValueEx(key, "ProcessorNameString")
-            raw_name = raw_name.strip()
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+                raw_name, _ = winreg.QueryValueEx(key, "ProcessorNameString")
+                raw_name = raw_name.strip()
             import re
             m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
             m_ryzen = re.search(r"(Ryzen\s+\d\s+\w+)", raw_name, re.I)

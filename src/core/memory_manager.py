@@ -57,6 +57,7 @@ class MemoryManager:
         _enable_privilege("SeProfileSingleProcessPrivilege")
         _enable_privilege("SeIncreaseQuotaPrivilege")
 
+    @staticmethod
     def get_memory_info() -> Dict[str, Any]:
         """Retorna informações de uso da memória RAM em GB e %."""
         vm = psutil.virtual_memory()

@@ -17,6 +17,8 @@ class FPSSyncManager:
     def __init__(self):
         self.kernel32 = ctypes.windll.kernel32
         self.user32 = ctypes.windll.user32
+        self._cached_pid: Optional[int] = None
+        self._cached_proc: Optional[psutil.Process] = None
 
     def get_rtss_fps(self) -> Optional[int]:
         """Lê o FPS atual da memória compartilhada do RTSS (se estiver em execução)."""
@@ -35,7 +37,9 @@ class FPSSyncManager:
             sig, ver, entry_size, arr_offset, arr_size = struct.unpack_from("<IIIII", raw_hdr, 0)
 
             fps = None
-            if sig == 0x48535452 and arr_size > 0:  # 'RTSH'
+            # Valida assinatura 'RTSS' independente de endianness
+            is_valid_sig = (raw_hdr[:4] == b"RTSS" or sig == 0x53535452 or sig == 0x52545353)
+            if is_valid_sig and arr_size > 0:
                 # Lê a última entrada de aplicativo ativo
                 for i in range(arr_size):
                     offset = arr_offset + (i * entry_size)
@@ -60,6 +64,8 @@ class FPSSyncManager:
     def get_game_telemetry(self, foreground_proc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Retorna informações completas do jogo ou aplicação ativa."""
         if not foreground_proc:
+            self._cached_pid = None
+            self._cached_proc = None
             return {
                 "active": False,
                 "name": "Nenhum jogo em foco",
@@ -78,11 +84,17 @@ class FPSSyncManager:
 
         if pid and psutil.pid_exists(pid):
             try:
-                p = psutil.Process(pid)
-                cpu_pct = p.cpu_percent(interval=None)
-                ram_mb = int(p.memory_info().rss / (1024 ** 2))
+                if self._cached_pid != pid:
+                    self._cached_pid = pid
+                    self._cached_proc = psutil.Process(pid)
+                    self._cached_proc.cpu_percent(interval=None)  # Inicializa medição delta
+                else:
+                    cpu_pct = self._cached_proc.cpu_percent(interval=None)
+
+                ram_mb = int(self._cached_proc.memory_info().rss / (1024 ** 2))
             except Exception:
-                pass
+                self._cached_pid = None
+                self._cached_proc = None
 
         rtss_fps = self.get_rtss_fps()
         has_rtss = rtss_fps is not None

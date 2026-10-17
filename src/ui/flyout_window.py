@@ -850,6 +850,11 @@ class FlyoutWindow(QWidget):
                     new_x = min(geo.right() - 385 - 12, self.x() + (770 - 385))
                     self.move(new_x, self.y())
 
+        self.adjustSize()
+        if self.custom_pos is None and self.isVisible() and geo:
+            y = geo.bottom() - self.height() - 12
+            self.move(self.x(), y)
+
     def _toggle_graph(self, graph_key: str):
         if graph_key == "cpu":
             self.show_cpu_graph = not self.show_cpu_graph
@@ -872,6 +877,14 @@ class FlyoutWindow(QWidget):
         self._apply_pill_style(self.btn_pill_cpu, self.show_cpu_graph, "#38BDF8", "#0C1E36")
         self._apply_pill_style(self.btn_pill_ram, self.show_ram_graph, "#A855F7", "#1F1033")
         self._apply_pill_style(self.btn_pill_gpu, self.show_gpu_graph, "#F59E0B", "#2D1A05")
+
+        self.adjustSize()
+        if self.custom_pos is None and self.isVisible():
+            screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                y = geo.bottom() - self.height() - 12
+                self.move(self.x(), y)
 
     def _apply_pill_style(self, btn: QPushButton, is_active: bool, border_color: str, bg_active: str):
         if is_active:
