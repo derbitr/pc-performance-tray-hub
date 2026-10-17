@@ -6,6 +6,7 @@ sem fechar janelas ou perder o estado da sessão.
 """
 
 import ctypes
+from ctypes import wintypes
 import psutil
 from typing import List, Dict, Set
 
@@ -32,6 +33,19 @@ class ProcessSuspender:
         self.kernel32 = ctypes.windll.kernel32
         self.ntdll = ctypes.windll.ntdll
         self._suspended_pids: Set[int] = set()
+
+        # Configura tipos 64-bit seguros para ntdll e kernel32
+        self.kernel32.OpenProcess.restype = wintypes.HANDLE
+        self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+
+        self.ntdll.NtSuspendProcess.restype = wintypes.LONG
+        self.ntdll.NtSuspendProcess.argtypes = [wintypes.HANDLE]
+
+        self.ntdll.NtResumeProcess.restype = wintypes.LONG
+        self.ntdll.NtResumeProcess.argtypes = [wintypes.HANDLE]
+
+        self.kernel32.CloseHandle.restype = wintypes.BOOL
+        self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
     def _cleanup_dead_pids(self):
         """Remove PIDs que já não existem mais no sistema."""

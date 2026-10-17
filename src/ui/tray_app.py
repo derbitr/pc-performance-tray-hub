@@ -92,11 +92,13 @@ class PerformanceTrayApp:
         ])
         painter.drawPolygon(bolt_points)
 
-        # Texto da temperatura
+        # Texto da temperatura (auto-escala para 2 ou 3 dígitos)
         painter.setPen(QColor("#F8FAFC"))
-        font = QFont("Segoe UI", 9, QFont.Weight.Bold)
+        font_size = 7 if temp_c >= 100 else 9
+        font = QFont("Segoe UI", font_size, QFont.Weight.Bold)
         painter.setFont(font)
-        painter.drawText(QRect(13, 0, 18, 32), Qt.AlignmentFlag.AlignCenter, f"{temp_c}")
+        text_rect = QRect(11, 0, 20, 32) if temp_c >= 100 else QRect(13, 0, 18, 32)
+        painter.drawText(text_rect, Qt.AlignmentFlag.AlignCenter, f"{temp_c}")
 
         painter.end()
         return pixmap

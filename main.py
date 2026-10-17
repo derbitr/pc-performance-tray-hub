@@ -22,10 +22,18 @@ _mutex_handle = None
 def ensure_single_instance() -> bool:
     global _mutex_handle
     kernel32 = ctypes.windll.kernel32
+    kernel32.CreateMutexW.restype = wintypes.HANDLE
+    kernel32.CreateMutexW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR]
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
     _mutex_handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
     last_error = kernel32.GetLastError()
     ERROR_ALREADY_EXISTS = 183
     if last_error == ERROR_ALREADY_EXISTS:
+        if _mutex_handle:
+            kernel32.CloseHandle(_mutex_handle)
+            _mutex_handle = None
         return False
     return True
 

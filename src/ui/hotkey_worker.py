@@ -34,6 +34,19 @@ class HotkeyWorker(QThread):
         self._running = True
         self.thread_id = 0
 
+        # Configura tipos 64-bit seguros para user32
+        self.user32.RegisterHotKey.restype = wintypes.BOOL
+        self.user32.RegisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.UINT, wintypes.UINT]
+
+        self.user32.UnregisterHotKey.restype = wintypes.BOOL
+        self.user32.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
+
+        self.user32.GetMessageW.restype = wintypes.BOOL
+        self.user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
+
+        self.user32.PostThreadMessageW.restype = wintypes.BOOL
+        self.user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+
     def run(self):
         self.thread_id = self.kernel32.GetCurrentThreadId()
 

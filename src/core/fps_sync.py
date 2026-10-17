@@ -20,6 +20,19 @@ class FPSSyncManager:
         self._cached_pid: Optional[int] = None
         self._cached_proc: Optional[psutil.Process] = None
 
+        # Configura tipos 64-bit seguros para evitar corrupção de ponteiros e crash de Access Violation
+        self.kernel32.OpenFileMappingW.restype = wintypes.HANDLE
+        self.kernel32.OpenFileMappingW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
+
+        self.kernel32.MapViewOfFile.restype = ctypes.c_void_p
+        self.kernel32.MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.c_size_t]
+
+        self.kernel32.UnmapViewOfFile.restype = wintypes.BOOL
+        self.kernel32.UnmapViewOfFile.argtypes = [ctypes.c_void_p]
+
+        self.kernel32.CloseHandle.restype = wintypes.BOOL
+        self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
     def get_rtss_fps(self) -> Optional[int]:
         """Lê o FPS atual da memória compartilhada do RTSS (se estiver em execução)."""
         h_map = self.kernel32.OpenFileMappingW(FILE_MAP_READ, False, "RTSSSharedMemory")

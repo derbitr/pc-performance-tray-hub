@@ -1091,6 +1091,8 @@ class FlyoutWindow(QWidget):
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
+            if hasattr(self, "_drag_pos"):
+                del self._drag_pos
             self._save_config()
             event.accept()
 
@@ -1102,8 +1104,19 @@ class FlyoutWindow(QWidget):
 
     def position_above_tray(self):
         if self.custom_pos and self._is_pos_visible(self.custom_pos):
-            self.move(self.custom_pos)
-            return
+            screen = None
+            for s in QApplication.screens():
+                if s.geometry().contains(self.custom_pos):
+                    screen = s
+                    break
+            if screen:
+                geo = screen.availableGeometry()
+                curr_w = self.width()
+                curr_h = self.height()
+                clamped_x = max(geo.left(), min(self.custom_pos.x(), geo.right() - curr_w))
+                clamped_y = max(geo.top(), min(self.custom_pos.y(), geo.bottom() - curr_h))
+                self.move(clamped_x, clamped_y)
+                return
         self.reset_to_tray_position()
 
     def reset_to_tray_position(self):

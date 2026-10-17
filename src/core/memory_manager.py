@@ -53,6 +53,17 @@ class MemoryManager:
         self.psapi = ctypes.windll.psapi
         self.kernel32 = ctypes.windll.kernel32
         self.ntdll = ctypes.windll.ntdll
+
+        # Configura tipos 64-bit seguros para psapi e kernel32
+        self.kernel32.OpenProcess.restype = wintypes.HANDLE
+        self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+
+        self.psapi.EmptyWorkingSet.restype = wintypes.BOOL
+        self.psapi.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+
+        self.kernel32.CloseHandle.restype = wintypes.BOOL
+        self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
         # Tenta habilitar privilégios para purga de Standby List
         _enable_privilege("SeProfileSingleProcessPrivilege")
         _enable_privilege("SeIncreaseQuotaPrivilege")

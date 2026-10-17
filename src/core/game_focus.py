@@ -30,6 +30,22 @@ class GameFocusManager:
         self._last_boosted_pid: Optional[int] = None
         self._last_boosted_name: str = ""
 
+        # Configura tipos 64-bit seguros (HWND e HANDLE têm 64 bits em Windows x64)
+        self.user32.GetForegroundWindow.restype = wintypes.HWND
+        self.user32.GetForegroundWindow.argtypes = []
+
+        self.user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        self.user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+
+        self.kernel32.OpenProcess.restype = wintypes.HANDLE
+        self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+
+        self.kernel32.SetPriorityClass.restype = wintypes.BOOL
+        self.kernel32.SetPriorityClass.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+
+        self.kernel32.CloseHandle.restype = wintypes.BOOL
+        self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
     def get_foreground_process(self) -> Optional[Dict[str, Any]]:
         """Identifica o processo da janela atualmente em primeiro plano."""
         hwnd = self.user32.GetForegroundWindow()
