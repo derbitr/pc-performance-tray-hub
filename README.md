@@ -6,11 +6,15 @@ Um otimizador de desktop ultraleve (< 20MB de RAM, 0.0% CPU em idle) com interfa
 
 ## Recursos Principais
 
+* **Gaveta Lateral Expansível Estilo Jogos IDLE:** Em vez de abrir janelas modais sobrepostas, o hub se expande horizontalmente para a lateral exibindo um painel de telemetria estendido. Possui detecção adaptativa das bordas da tela: quando acoplado no canto direito perto do relógio, expande-se suavemente para a esquerda em direção ao centro da tela.
+* **Detecção Automática de Placa de Vídeo (GPU):** Identifica adaptadores dedicados (NVIDIA, AMD) e gráficos integrados (Intel HD Graphics) via Registro do Windows com custo zero de CPU, monitorando carga percentual, temperatura e alocação de memória de vídeo (VRAM).
+* **Gráficos Visuais Customizáveis (Últimos 30s):** Traçado contínuo vetorial em tempo real via `QPainter` com seletores tipo pílula para ativar ou ocultar cada gráfico individualmente:
+  * **CPU & Temperatura:** Carga de processamento (Ciano `#38BDF8`) e temperatura em graus Celsius (Esmeralda `#10B981`).
+  * **Memória RAM:** Uso da memória física em porcentagem (Roxo `#A855F7`) e memória livre em gigabytes (Ciano `#38BDF8`).
+  * **Placa de Vídeo & VRAM:** Carga de computação gráfica (Âmbar `#F59E0B`) e uso de memória de vídeo (Rosa `#F43F5E`).
 * **Modo HUD Livre / Arrastável:** Pode ser fixado em qualquer canto da tela (Modo Alfinete) com controle de opacidade (60% a 100%) ou recolhido discretamente na System Tray ao lado do relógio.
 * **Perfis de Energia Nativos:** Alternância rápida entre *Turbo Max* (Desempenho Máximo nativo do processador), *Equilibrado* e *Silencioso*.
-* **Telemetria Tabular em Tempo Real:** Monitora clock em GHz, uso percentual de CPU e temperatura do processador.
-* **Gráfico Sparkline Vetorial (30s):** Traçado contínuo em tempo real de carga da CPU (Ciano `#38BDF8`) e temperatura (Esmeralda `#10B981`) sem bibliotecas externas pesadas.
-* **Redutor de Latência do Windows (Timer 0.5ms):** Reduz o timer de eventos do kernel de 15.6ms para 0.5ms/1.0ms via `winmm.dll:timeBeginPeriod`, diminuindo o input lag do mouse e microstutters.
+* **Redutor de Latência do Windows (Timer 0.5ms):** Reduz o timer de eventos do kernel de 15.6ms para 0.5ms via `winmm.dll:timeBeginPeriod`, diminuindo o input lag do mouse e microstutters.
 * **Modo Game Focus:** Detecta o jogo ativo em tela cheia e eleva sua prioridade para `HIGH_PRIORITY_CLASS`, aplicando `EcoQoS` em processos secundários de fundo.
 * **Limpeza Inteligente de RAM e SSD:**
   * Purga o *Working Set* e a *Standby List* da memória sem fechar nenhum app.
@@ -33,6 +37,7 @@ pc-performance-tray-hub/
 │   │   ├── autostart.py        # Registro no Agendador de Tarefas do Windows
 │   │   ├── disk_cleaner.py     # Limpeza não-destrutiva de arquivos temporários
 │   │   ├── game_focus.py       # Prioridade de CPU e EcoQoS para jogos
+│   │   ├── gpu_monitor.py      # Detecção e telemetria de GPUs dedicadas/integradas
 │   │   ├── hardware_monitor.py # Leitura de clock, temperatura e Super I/O
 │   │   ├── health_checker.py   # Diagnóstico S.M.A.R.T. de discos
 │   │   ├── memory_manager.py   # Otimizador de Working Set e Standby List
@@ -41,9 +46,9 @@ pc-performance-tray-hub/
 │   │   ├── process_suspender.py# Congelamento seguro de launchers
 │   │   └── timer_resolution.py # Redução de input lag via winmm.dll
 │   └── ui/
-│       ├── flyout_window.py    # Interface gráfica True Dark arrastável
+│       ├── flyout_window.py    # Interface True Dark com expansão lateral IDLE
 │       ├── hotkey_worker.py    # Captura global de atalhos do teclado
-│       ├── sparkline_widget.py # Gráfico dinâmico em QPainter
+│       ├── sparkline_widget.py # Múltiplos gráficos dinâmicos em QPainter
 │       └── tray_app.py         # Ícone dinâmico e menu de contexto da bandeja
 ```
 

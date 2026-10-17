@@ -106,6 +106,21 @@ ICON_EYE = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" vie
   <circle cx="12" cy="12" r="3"></circle>
 </svg>"""
 
+ICON_GPU = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2" y="4" width="20" height="14" rx="2"></rect>
+  <path d="M6 18v3M10 18v3M14 18v3M18 18v3M2 10h20"></path>
+  <circle cx="7" cy="7" r="1.5"></circle>
+  <circle cx="12" cy="7" r="1.5"></circle>
+</svg>"""
+
+ICON_EXPAND = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="9 18 15 12 9 6"></polyline>
+</svg>"""
+
+ICON_COLLAPSE = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <polyline points="15 18 9 12 15 6"></polyline>
+</svg>"""
+
 def get_svg(template: str, color: str = "#94A3B8") -> str:
     """Retorna o SVG preenchido com a cor especificada."""
     return template.format(color=color)
