@@ -9,14 +9,18 @@ from ctypes import wintypes
 import psutil
 from typing import Dict, Any, Optional
 
-# Prioridades Win32
 HIGH_PRIORITY_CLASS = 0x00000080
-ABOVE_NORMAL_PRIORITY_CLASS = 0x00008000
 NORMAL_PRIORITY_CLASS = 0x00000020
 BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 
 PROCESS_SET_INFORMATION = 0x0200
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+SYSTEM_IGNORED_NAMES = {
+    "explorer.exe", "pctrayhub.exe", "python.exe", "pythonw.exe",
+    "shellexperiencehost.exe", "searchhost.exe", "taskmgr.exe",
+    "lockapp.exe", "applicationframehost.exe", "startmenuexperiencehost.exe"
+}
 
 class GameFocusManager:
     def __init__(self):
@@ -39,53 +43,69 @@ class GameFocusManager:
 
         try:
             p = psutil.Process(pid.value)
-            name = p.name()
-            # Ignora o explorer e o próprio tray hub
-            if name.lower() in ("explorer.exe", "pctrayhub.exe", "python.exe", "shellexperiencehost.exe"):
+            name = (p.name() or "").lower()
+            if name in SYSTEM_IGNORED_NAMES:
                 return None
             return {
                 "pid": pid.value,
-                "name": name,
-                "exe": p.exe() if hasattr(p, "exe") else name
+                "name": p.name(),
+                "exe": p.exe() if hasattr(p, "exe") else p.name()
             }
         except Exception:
             return None
 
-    def boost_foreground_process(self) -> Dict[str, Any]:
-        """Eleva a prioridade do processo em foco para Alta Performance."""
-        proc = self.get_foreground_process()
-        if not proc:
-            return {"success": False, "message": "Nenhum jogo/app ativo em foco"}
-
-        pid = proc["pid"]
+    def boost_process(self, pid: int, name: str) -> bool:
+        """Aplica prioridade alta no processo desejado."""
         try:
             h_proc = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, pid)
             if h_proc:
                 self.kernel32.SetPriorityClass(h_proc, HIGH_PRIORITY_CLASS)
                 self.kernel32.CloseHandle(h_proc)
                 self._last_boosted_pid = pid
-                self._last_boosted_name = proc["name"]
-                return {
-                    "success": True,
-                    "pid": pid,
-                    "name": proc["name"],
-                    "priority": "HIGH"
-                }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
+                self._last_boosted_name = name
+                return True
+        except Exception:
+            pass
+        return False
 
-        return {"success": False, "message": "Falha ao elevar prioridade"}
+    def check_and_boost_active(self) -> Optional[Dict[str, Any]]:
+        """Chamado periodicamente para monitorar e impulsionar o jogo que entrar em foco."""
+        if not self.is_active:
+            return None
+
+        proc = self.get_foreground_process()
+        if not proc:
+            return None
+
+        pid = proc["pid"]
+        if pid != self._last_boosted_pid:
+            # Se mudou de janela ativa, restaura a anterior se ainda existir
+            if self._last_boosted_pid and psutil.pid_exists(self._last_boosted_pid):
+                try:
+                    h_prev = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, self._last_boosted_pid)
+                    if h_prev:
+                        self.kernel32.SetPriorityClass(h_prev, NORMAL_PRIORITY_CLASS)
+                        self.kernel32.CloseHandle(h_prev)
+                except Exception:
+                    pass
+
+            if self.boost_process(pid, proc["name"]):
+                return {"pid": pid, "name": proc["name"], "boosted": True}
+
+        return None
 
     def toggle(self) -> Dict[str, Any]:
         """Alterna o estado do Game Focus."""
         self.is_active = not self.is_active
         if self.is_active:
-            res = self.boost_foreground_process()
-            res["is_active"] = True
-            return res
+            # Tenta impulsionar o foreground atual se já não for a própria UI
+            proc = self.get_foreground_process()
+            if proc:
+                self.boost_process(proc["pid"], proc["name"])
+                return {"success": True, "is_active": True, "name": proc["name"]}
+            return {"success": True, "is_active": True, "name": "Ativo (Aguardando Jogo)"}
         else:
-            # Restaura se houver processo boosted
-            if self._last_boosted_pid:
+            if self._last_boosted_pid and psutil.pid_exists(self._last_boosted_pid):
                 try:
                     h_proc = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, self._last_boosted_pid)
                     if h_proc:
@@ -93,4 +113,6 @@ class GameFocusManager:
                         self.kernel32.CloseHandle(h_proc)
                 except Exception:
                     pass
+            self._last_boosted_pid = None
+            self._last_boosted_name = ""
             return {"success": True, "is_active": False, "message": "Game Focus desativado"}

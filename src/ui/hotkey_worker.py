@@ -2,6 +2,7 @@
 Módulo de Atalhos Globais de Teclado (HotkeyWorker)
 Registra hotkeys globais no Windows via user32.dll (RegisterHotKey)
 permitindo acionar as otimizações mesmo com jogos em tela cheia.
+Encerramento limpo via PostThreadMessageW (sem deadlock).
 """
 
 import ctypes
@@ -20,6 +21,7 @@ HOTKEY_RAM_ID = 101
 HOTKEY_TURBO_ID = 102
 
 WM_HOTKEY = 0x0312
+WM_QUIT = 0x0012
 
 class HotkeyWorker(QThread):
     hotkey_ram_triggered = pyqtSignal()
@@ -28,9 +30,13 @@ class HotkeyWorker(QThread):
     def __init__(self):
         super().__init__()
         self.user32 = ctypes.windll.user32
+        self.kernel32 = ctypes.windll.kernel32
         self._running = True
+        self.thread_id = 0
 
     def run(self):
+        self.thread_id = self.kernel32.GetCurrentThreadId()
+
         # Registra Ctrl + Shift + F12
         self.user32.RegisterHotKey(
             None,
@@ -48,22 +54,32 @@ class HotkeyWorker(QThread):
 
         msg = wintypes.MSG()
         while self._running:
-            # GetMessageW bloqueia suavemente sem gastar CPU
-            if self.user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
-                if msg.message == WM_HOTKEY:
-                    if msg.wParam == HOTKEY_RAM_ID:
-                        self.hotkey_ram_triggered.emit()
-                    elif msg.wParam == HOTKEY_TURBO_ID:
-                        self.hotkey_turbo_triggered.emit()
-                self.user32.TranslateMessage(ctypes.byref(msg))
-                self.user32.DispatchMessageW(ctypes.byref(msg))
+            ret = self.user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+            if ret <= 0:  # 0 significa WM_QUIT, -1 significa erro
+                break
 
-    def stop(self):
-        self._running = False
+            if msg.message == WM_HOTKEY:
+                if msg.wParam == HOTKEY_RAM_ID:
+                    self.hotkey_ram_triggered.emit()
+                elif msg.wParam == HOTKEY_TURBO_ID:
+                    self.hotkey_turbo_triggered.emit()
+
+            self.user32.TranslateMessage(ctypes.byref(msg))
+            self.user32.DispatchMessageW(ctypes.byref(msg))
+
+        # Desregistra ao encerrar a thread
         try:
             self.user32.UnregisterHotKey(None, HOTKEY_RAM_ID)
             self.user32.UnregisterHotKey(None, HOTKEY_TURBO_ID)
-            self.user32.PostQuitMessage(0)
         except Exception:
             pass
-        self.wait(1000)
+
+    def stop(self):
+        self._running = False
+        if self.thread_id:
+            try:
+                # Posta WM_QUIT especificamente na fila da worker thread (evita deadlock)
+                self.user32.PostThreadMessageW(self.thread_id, WM_QUIT, 0, 0)
+            except Exception:
+                pass
+        self.wait(500)

@@ -485,6 +485,13 @@ class FlyoutWindow(QWidget):
         if hasattr(self, 'sparkline'):
             self.sparkline.add_point(metrics['cpu_percent'], metrics['temp_c'])
 
+        # Monitoramento dinâmico em segundo plano do Game Focus
+        if hasattr(self, 'game_focus') and self.game_focus.is_active:
+            boosted = self.game_focus.check_and_boost_active()
+            if boosted:
+                name = boosted.get("name", "Jogo")
+                self.btn_game.setText(f" Focus: {name[:7]}")
+
     def _update_power_pills(self):
         active = self.power_mgr.get_active_scheme()
         self.lbl_active_scheme.setText(active["name"])
@@ -615,9 +622,16 @@ class FlyoutWindow(QWidget):
             self._save_config()
             event.accept()
 
+    def _is_pos_visible(self, pos: QPoint) -> bool:
+        """Verifica se a posição salva ainda está dentro de alguma tela conectada."""
+        for screen in QApplication.screens():
+            if screen.geometry().contains(pos):
+                return True
+        return False
+
     def position_above_tray(self):
-        """Se o usuário moveu a janela, restaura a posição personalizada; senão alinha no canto inferior direito."""
-        if self.custom_pos:
+        """Se o usuário moveu a janela e ela ainda está visível, restaura; senão alinha no canto inferior direito."""
+        if self.custom_pos and self._is_pos_visible(self.custom_pos):
             self.move(self.custom_pos)
             return
         self.reset_to_tray_position()

@@ -9,7 +9,6 @@ import ctypes
 import psutil
 from typing import List, Dict, Set
 
-# Processos comuns conhecidos por consumir CPU/RAM em segundo plano
 TARGET_LAUNCHERS = {
     "steam.exe": "Steam",
     "epicgameslauncher.exe": "Epic Games",
@@ -34,8 +33,14 @@ class ProcessSuspender:
         self.ntdll = ctypes.windll.ntdll
         self._suspended_pids: Set[int] = set()
 
+    def _cleanup_dead_pids(self):
+        """Remove PIDs que já não existem mais no sistema."""
+        dead = {pid for pid in self._suspended_pids if not psutil.pid_exists(pid)}
+        self._suspended_pids.difference_update(dead)
+
     def get_detected_launchers(self) -> List[Dict[str, any]]:
         """Retorna a lista de launchers atualmente em execução na máquina."""
+        self._cleanup_dead_pids()
         detected = []
         for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
             try:
@@ -54,10 +59,12 @@ class ProcessSuspender:
     @property
     def is_any_suspended(self) -> bool:
         """Indica se há processos atualmente congelados."""
+        self._cleanup_dead_pids()
         return len(self._suspended_pids) > 0
 
     def suspend_all(self) -> int:
         """Congela todos os launchers detectados e retorna a quantidade suspensa."""
+        self._cleanup_dead_pids()
         count = 0
         launchers = self.get_detected_launchers()
         for item in launchers:
@@ -79,16 +86,23 @@ class ProcessSuspender:
         count = 0
         pids_to_remove = set()
         for pid in list(self._suspended_pids):
+            if not psutil.pid_exists(pid):
+                pids_to_remove.add(pid)
+                continue
+
             handle = self.kernel32.OpenProcess(PROCESS_SUSPEND_RESUME, False, pid)
             if handle:
                 try:
-                    if self.ntdll.NtResumeProcess(handle) == 0:
+                    status = self.ntdll.NtResumeProcess(handle)
+                    if status == 0:
                         count += 1
-                        pids_to_remove.add(pid)
+                    # Se resume sucedeu ou se o processo rejeitou por já estar rodando
+                    pids_to_remove.add(pid)
                 finally:
                     self.kernel32.CloseHandle(handle)
             else:
-                pids_to_remove.add(pid)  # O processo já foi fechado pelo usuário
+                pids_to_remove.add(pid)
+
         self._suspended_pids.difference_update(pids_to_remove)
         return count
 
@@ -99,4 +113,4 @@ class ProcessSuspender:
             return {"action": "resumed", "count": resumed, "is_suspended": False}
         else:
             suspended = self.suspend_all()
-            return {"action": "suspended", "count": suspended, "is_suspended": self.is_any_suspended}
+            return {"action": "suspended", "count": suspended, "is_suspended": (suspended > 0)}

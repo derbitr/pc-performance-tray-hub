@@ -194,6 +194,27 @@ class PerformanceTrayApp:
         )
 
     def _quit(self):
+        # 1. Retoma launchers suspensos se houver algum congelado
+        try:
+            if hasattr(self.flyout, 'proc_suspender') and self.flyout.proc_suspender.is_any_suspended:
+                self.flyout.proc_suspender.resume_all()
+        except Exception:
+            pass
+
+        # 2. Restaura resolução padrão do timer do Windows
+        try:
+            if hasattr(self.flyout, 'timer_mgr') and self.flyout.timer_mgr.is_active:
+                self.flyout.timer_mgr.set_low_latency(False)
+        except Exception:
+            pass
+
+        # 3. Restaura prioridade do processo se Game Focus estava ativo
+        try:
+            if hasattr(self.flyout, 'game_focus') and self.flyout.game_focus.is_active:
+                self.flyout.game_focus.toggle()
+        except Exception:
+            pass
+
         self.hotkey_worker.stop()
         self.tray.hide()
         self.app.quit()

@@ -93,6 +93,9 @@ class SparklineWidget(QWidget):
         grad.setColorAt(1, QColor(56, 189, 248, 0))
         painter.fillPath(fill_path, grad)
 
+        # Remove preenchimento para desenhar apenas as linhas com nitidez
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
         painter.setPen(QPen(QColor("#38BDF8"), 1.5))
         painter.drawPath(cpu_path)
 
