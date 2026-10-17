@@ -88,12 +88,13 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
 
 ## Recursos e Funcionalidades
 
-* **Graficos Vetoriais em Tempo Real (Customizaveis):**
-  * Traçado contínuo renderizado via `QPainter` com seletores tipo pílula.
-  * Escolha de exibicao flexível: exiba os gráficos na primeira janela (Hub) ou na gaveta lateral expansível (`Local: [ Hub ] [ Lateral ]`).
-  * Grafico de CPU e Temperatura: monitoramento de processamento e térmica em tempo real.
-  * Grafico de Memória RAM: percentual de uso físico e memoria livre disponivel.
-  * Gráfico de Placa de Video (GPU): carga percentual de processamento e alocacao de VRAM.
+* **Graficos Vetoriais e Ventoinha da GPU (Customizaveis):**
+  * Tracado continuo renderizado via `QPainter` com seletores tipo pilula.
+  * Escolha de exibicao flexivel: posicione os graficos e o controle de ventoinha no painel principal (Hub) ou na gaveta lateral expansivel (`Local: [ Hub ] [ Lateral ]`).
+  * Controle de Ventoinha da Placa de Video: modos Auto, Silencio, Jogos (85%), MAX e controle manual continuo de 30% a 100% com medicao de RPM.
+  * Grafico de CPU e Temperatura: monitoramento de processamento e termica em tempo real com inercia fisica sem quedas bruscas.
+  * Grafico de Memoria RAM: percentual de uso fisico e memoria livre disponivel.
+  * Grafico de Placa de Video (GPU): carga percentual de processamento e alocacao de VRAM.
 
 * **Gaveta Lateral Expansível:**
   * O painel se expande lateralmente com animacao fluida baseada em curvas cubicas (`OutCubic`), revelando gadgets complementares e processos com maior consumo de memoria.
