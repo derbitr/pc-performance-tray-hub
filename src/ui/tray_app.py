@@ -7,7 +7,11 @@ from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 import sys
 import os
 
-from src.ui.flyout_window import FlyoutWindow
+from src.ui.flyout_window import FlyoutWindow, create_svg_pixmap
+from src.assets.icons import (
+    get_svg, ICON_BOLT, ICON_MEMORY, ICON_PAUSE, ICON_TIMER,
+    ICON_CLEAN_DISK, ICON_SETTINGS, ICON_SHIELD
+)
 from src.ui.hotkey_worker import HotkeyWorker
 from src.core.power_manager import PowerManager
 from src.core.memory_manager import MemoryManager
@@ -119,31 +123,43 @@ class PerformanceTrayApp:
         """)
 
         act_turbo = menu.addAction("Turbo Max (Desempenho)")
+        act_turbo.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 14)))
         act_turbo.triggered.connect(lambda: self.flyout._set_scheme("turbo"))
 
         act_balanced = menu.addAction("Equilibrado")
+        act_balanced.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_SETTINGS, "#94A3B8"), 14)))
         act_balanced.triggered.connect(lambda: self.flyout._set_scheme("balanced"))
 
         act_silent = menu.addAction("Silencioso (Eco)")
+        act_silent.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_SHIELD, "#10B981"), 14)))
         act_silent.triggered.connect(lambda: self.flyout._set_scheme("silent"))
 
         menu.addSeparator()
 
-        act_ram = menu.addAction("Limpar Memoria RAM")
+        act_ram = menu.addAction("Limpar Memória RAM")
+        act_ram.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_MEMORY, "#38BDF8"), 14)))
         act_ram.triggered.connect(self._on_hotkey_ram)
 
         act_launchers = menu.addAction("Pausar / Retomar Launchers")
+        act_launchers.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_PAUSE, "#F59E0B"), 14)))
         act_launchers.triggered.connect(self.flyout._on_toggle_suspend)
 
         act_timer = menu.addAction("Alternar Timer 0.5ms (Baixa Latência)")
+        act_timer.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_TIMER, "#38BDF8"), 14)))
         act_timer.triggered.connect(self.flyout._on_toggle_timer)
 
         act_disk = menu.addAction("Limpeza Rápida de SSD")
+        act_disk.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_CLEAN_DISK, "#38BDF8"), 14)))
         act_disk.triggered.connect(self.flyout._on_clean_disk)
 
         menu.addSeparator()
 
+        act_diag = menu.addAction("Copiar Diagnóstico da Máquina")
+        act_diag.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_SETTINGS, "#38BDF8"), 14)))
+        act_diag.triggered.connect(self.flyout._copy_diagnostic_report)
+
         act_open = menu.addAction("Abrir Painel")
+        act_open.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 14)))
         act_open.triggered.connect(self.flyout.show_or_toggle)
 
         act_quit = menu.addAction("Sair")

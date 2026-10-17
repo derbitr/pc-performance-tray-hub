@@ -2,7 +2,9 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
     QSlider, QFrame, QProgressBar, QApplication
 )
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPoint
+from PyQt6.QtCore import (
+    Qt, QTimer, pyqtSignal, QPoint, QVariantAnimation, QEasingCurve, QAbstractAnimation
+)
 from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
 
@@ -232,6 +234,12 @@ class FlyoutWindow(QWidget):
         footer.addWidget(footer_lbl)
         footer.addStretch()
 
+        self.btn_diag = QPushButton("Diagnóstico")
+        self.btn_diag.setToolTip("Copia relatório completo do sistema para a Área de Transferência")
+        self.btn_diag.setStyleSheet("font-size: 10px; padding: 2px 6px; color: #38BDF8; border: none; background: transparent;")
+        self.btn_diag.clicked.connect(self._copy_diagnostic_report)
+        footer.addWidget(self.btn_diag)
+
         reset_btn = QPushButton("Resetar Canto")
         reset_btn.setToolTip("Restaura a posição original sobre a bandeja")
         reset_btn.setStyleSheet("font-size: 10px; padding: 2px 6px; color: #64748B; border: none; background: transparent;")
@@ -281,8 +289,8 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addLayout(wing_header)
 
         self.side_wing_layout.addWidget(self._build_gpu_card())
-
         self.side_wing_layout.addWidget(self._build_game_sync_card())
+        self.side_wing_layout.addWidget(self._build_top_processes_card())
 
         self.wing_graph_slot = QVBoxLayout()
         self.wing_graph_slot.setContentsMargins(0, 0, 0, 0)
@@ -583,7 +591,7 @@ class FlyoutWindow(QWidget):
         self.btn_game = QPushButton(" Game Focus")
         self.btn_game.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_GAME, "#38BDF8"), 13)))
         self.btn_game.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
-        self.btn_game.setToolTip("Prioriza o jogo ativo em foco na CPU do Core i7")
+        self.btn_game.setToolTip("Prioriza o jogo ativo em foco com prioridade máxima nos núcleos da CPU")
         self.btn_game.clicked.connect(self._on_toggle_game_focus)
         grid.addWidget(self.btn_game, 0, 1)
 
@@ -780,10 +788,192 @@ class FlyoutWindow(QWidget):
 
         return card
 
+    def _build_top_processes_card(self) -> QWidget:
+        card = QFrame()
+        card.setProperty("class", "GadgetCard")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(8, 7, 8, 7)
+        lay.setSpacing(4)
+
+        hdr = QHBoxLayout()
+        proc_icon = QLabel()
+        proc_icon.setPixmap(create_svg_pixmap(get_svg(ICON_CPU, "#38BDF8"), 14))
+        hdr.addWidget(proc_icon)
+
+        title = QLabel("PROCESSOS TOP CONSUMO")
+        title.setStyleSheet("font-size: 9px; font-weight: 700; color: #64748B; letter-spacing: 0.05em;")
+        hdr.addWidget(title)
+        hdr.addStretch()
+
+        btn_refresh = QPushButton("Atualizar")
+        btn_refresh.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_refresh.setStyleSheet("font-size: 8px; color: #38BDF8; background: transparent; border: none; padding: 0px 4px;")
+        btn_refresh.clicked.connect(self._update_top_processes)
+        hdr.addWidget(btn_refresh)
+        lay.addLayout(hdr)
+
+        self.proc_rows_layout = QVBoxLayout()
+        self.proc_rows_layout.setSpacing(3)
+        lay.addLayout(self.proc_rows_layout)
+
+        return card
+
+    def _update_top_processes(self):
+        if not hasattr(self, 'proc_rows_layout'):
+            return
+
+        while self.proc_rows_layout.count() > 0:
+            item = self.proc_rows_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.deleteLater()
+
+        procs = []
+        for p in psutil.process_iter(['pid', 'name', 'memory_info']):
+            try:
+                mem_mb = int(p.info['memory_info'].rss / (1024 * 1024))
+                name = p.info['name']
+                pid = p.info['pid']
+                if pid > 4 and name.lower() not in ('system', 'idle', 'registry', 'pctrayhub.exe', 'python.exe', 'pythonw.exe'):
+                    procs.append((name, pid, mem_mb))
+            except Exception:
+                pass
+
+        procs.sort(key=lambda x: x[2], reverse=True)
+        top = procs[:3]
+
+        if not top:
+            empty_lbl = QLabel("Nenhum processo pesado ativo.")
+            empty_lbl.setStyleSheet("font-size: 9px; color: #64748B;")
+            self.proc_rows_layout.addWidget(empty_lbl)
+            return
+
+        for name, pid, mem in top:
+            row = QHBoxLayout()
+            row.setContentsMargins(2, 1, 2, 1)
+
+            p_lbl = QLabel(f"{name}")
+            p_lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #E2E8F0;")
+            row.addWidget(p_lbl)
+            row.addStretch()
+
+            mem_lbl = QLabel(f"{mem} MB")
+            mem_lbl.setStyleSheet("font-size: 9px; font-weight: 700; color: #38BDF8; font-family: Consolas;")
+            row.addWidget(mem_lbl)
+
+            btn_kill = QPushButton("X")
+            btn_kill.setFixedSize(16, 16)
+            btn_kill.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_kill.setToolTip(f"Encerrar processo {name} (PID {pid})")
+            btn_kill.setStyleSheet("font-size: 8px; font-weight: 800; color: #F43F5E; background: #1C0F14; border: 1px solid #4C1D24; border-radius: 3px; padding: 0px;")
+            btn_kill.clicked.connect(lambda checked, p=pid: self._kill_process(p))
+            row.addWidget(btn_kill)
+
+            row_widget = QWidget()
+            row_widget.setLayout(row)
+            self.proc_rows_layout.addWidget(row_widget)
+
+    def _kill_process(self, pid: int):
+        try:
+            p = psutil.Process(pid)
+            p.terminate()
+            QTimer.singleShot(300, self._update_top_processes)
+        except Exception:
+            pass
+
+    def _copy_diagnostic_report(self):
+        try:
+            hw = self.hw_monitor.get_metrics()
+            hw_spec = HardwareMonitor.get_hardware_info()
+            vm = psutil.virtual_memory()
+            gpu = self.gpu_monitor.get_gpu_info()
+            timer_info = self.timer_mgr.get_resolution()
+            health = self.health_checker.get_system_health_score()
+            disks_str = ", ".join([f"{d.get('name')} ({d.get('health')})" for d in health.get("disks", [])])
+            cores = psutil.cpu_count(logical=True) or 4
+
+            report = (
+                f"PC PERFORMANCE TRAY HUB - RELATORIO DE DIAGNOSTICO\n"
+                f"--------------------------------------------------\n"
+                f"Processador: {hw_spec.get('cpu', 'N/A')} ({cores} threads / nucleos)\n"
+                f"Clock Atual: {hw.get('clock_ghz', 0.0):.2f} GHz | Uso: {hw.get('cpu_percent', 0)}% | Temp: {hw.get('temp_c', 0)} C\n"
+                f"Placa de Video: {gpu.get('name', 'N/A')} (Driver: {gpu.get('driver', 'N/A')})\n"
+                f"VRAM: {gpu.get('vram_used_mb', 0)} MB / {gpu.get('vram_total_mb', 0)} MB ({gpu.get('vram_percent', 0)}%)\n"
+                f"Memoria RAM: {vm.used / (1024**3):.2f} GB / {vm.total / (1024**3):.2f} GB ({vm.percent}% em uso)\n"
+                f"Armazenamento SMART: {disks_str}\n"
+                f"Resolucao de Timer: {timer_info.get('current_ms', 15.6):.1f} ms ({'Baixa Latencia' if timer_info.get('is_low_latency') else 'Padrao'})\n"
+                f"Status Geral: Sistema Estavel ({health.get('score', 100)}% de integridade)\n"
+            )
+
+            cb = QApplication.clipboard()
+            if cb:
+                cb.setText(report)
+
+            if hasattr(self, 'btn_diag'):
+                self.btn_diag.setText("Copiado!")
+                QTimer.singleShot(1800, lambda: self.btn_diag.setText("Diagnóstico"))
+        except Exception:
+            pass
+
     def _toggle_side_wing(self):
         self.wing_expanded = not self.wing_expanded
-        self._apply_wing_state(reposition=True)
+        self._animate_wing(self.wing_expanded)
         self._save_config()
+
+    def _animate_wing(self, expanding: bool):
+        if hasattr(self, '_wing_anim') and self._wing_anim.state() == QAbstractAnimation.State.Running:
+            self._wing_anim.stop()
+
+        screen = None
+        for s in QApplication.screens():
+            if s.geometry().contains(self.pos()):
+                screen = s
+                break
+        if not screen:
+            screen = QApplication.primaryScreen()
+        geo = screen.availableGeometry() if screen else None
+
+        start_w = 385 if expanding else 770
+        end_w = 770 if expanding else 385
+        start_x = self.x()
+
+        if expanding:
+            self.side_wing.setVisible(True)
+            self.divider.setVisible(True)
+            self.btn_wing_toggle.setText(" GADGETS «")
+            self.btn_wing_toggle.setStyleSheet("background-color: #1E3A8A; border: 1px solid #38BDF8; color: #FFFFFF; font-weight: 700; padding: 4px 8px; font-size: 10px;")
+            self._update_top_processes()
+        else:
+            self.btn_wing_toggle.setText(" GADGETS »")
+            self.btn_wing_toggle.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #94A3B8; font-weight: 600; padding: 4px 8px; font-size: 10px;")
+
+        self._wing_anim = QVariantAnimation(self)
+        self._wing_anim.setDuration(160)
+        self._wing_anim.setStartValue(start_w)
+        self._wing_anim.setEndValue(end_w)
+        self._wing_anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def on_step(val):
+            w = int(val)
+            self.setFixedWidth(w)
+            if geo and start_x + 770 > geo.right():
+                shift = w - 385
+                new_x = max(geo.left() + 10, start_x - shift)
+                self.move(new_x, self.y())
+
+        def on_finish():
+            if not expanding:
+                self.side_wing.setVisible(False)
+                self.divider.setVisible(False)
+                self.setFixedWidth(385)
+            self.adjustSize()
+            if self.custom_pos is None and self.isVisible() and geo:
+                y = geo.bottom() - self.height() - 12
+                self.move(self.x(), y)
+
+        self._wing_anim.valueChanged.connect(on_step)
+        self._wing_anim.finished.connect(on_finish)
+        self._wing_anim.start()
 
     def _apply_wing_state(self, reposition: bool = False):
         screen = None
@@ -801,6 +991,7 @@ class FlyoutWindow(QWidget):
             self.setFixedWidth(770)
             self.btn_wing_toggle.setText(" GADGETS «")
             self.btn_wing_toggle.setStyleSheet("background-color: #1E3A8A; border: 1px solid #38BDF8; color: #FFFFFF; font-weight: 700; padding: 4px 8px; font-size: 10px;")
+            self._update_top_processes()
             if reposition and geo:
                 if self.x() + 770 > geo.right():
                     shift = (self.x() + 770) - geo.right() + 12
@@ -920,6 +1111,9 @@ class FlyoutWindow(QWidget):
             if boosted:
                 name = boosted.get("name", "Jogo")
                 self.btn_game.setText(f" Focus: {name[:7]}")
+
+        if getattr(self, "wing_expanded", False) and hasattr(self, "proc_rows_layout"):
+            self._update_top_processes()
 
     def _update_power_pills(self):
         active = self.power_mgr.get_active_scheme()
