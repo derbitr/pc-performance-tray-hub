@@ -1,9 +1,3 @@
-"""
-Widget Gráfico Sparkline Vetorial dos Últimos 30 Segundos
-Desenha curvas suaves em tempo real com QPainter sem sobrecarga de bibliotecas pesadas.
-Totalmente configurável para CPU, Memória RAM e Placa de Vídeo (GPU).
-"""
-
 from PyQt6.QtWidgets import QWidget
 from PyQt6.QtGui import QPainter, QColor, QPen, QPainterPath, QFont, QLinearGradient
 from PyQt6.QtCore import Qt, QPointF
@@ -56,32 +50,25 @@ class SparklineWidget(QWidget):
         w = self.width()
         h = self.height()
 
-        # Fundo do Card
         painter.setBrush(QColor("#0B0F19"))
         painter.setPen(QColor("#161F30"))
         painter.drawRoundedRect(0, 0, w, h, 6, 6)
 
-        # Grade sutil
         painter.setPen(QPen(QColor("#162032"), 1, Qt.PenStyle.DashLine))
         painter.drawLine(8, int(h / 2), w - 8, int(h / 2))
 
-        # Legenda e Escala
         font = QFont("Segoe UI", 7, QFont.Weight.Bold)
         painter.setFont(font)
-        
-        # Label 1
+
         painter.setPen(self.color_1)
         painter.drawText(8, 12, self.title_1)
-        
-        # Label 2
+
         painter.setPen(self.color_2)
         painter.drawText(50, 12, self.title_2)
 
-        # Escala de tempo à direita
         painter.setPen(QColor("#475569"))
         painter.drawText(w - 65, 12, "HISTORICO 30s")
 
-        # Margens internas da área de plotagem
         plot_left = 8
         plot_right = w - 8
         plot_top = 16
@@ -96,7 +83,6 @@ class SparklineWidget(QWidget):
 
         step_x = plot_w / (self.max_points - 1)
 
-        # 1. Curva 1 (0 a 100%)
         path_1 = QPainterPath()
         for i, val in enumerate(self.history_1):
             clamped = max(0.0, min(100.0, val))
@@ -107,7 +93,6 @@ class SparklineWidget(QWidget):
             else:
                 path_1.lineTo(x, y)
 
-        # Gradiente translúcido
         fill_path = QPainterPath(path_1)
         fill_path.lineTo(plot_left + (n - 1) * step_x, plot_bottom)
         fill_path.lineTo(plot_left, plot_bottom)
@@ -119,12 +104,10 @@ class SparklineWidget(QWidget):
         grad.setColorAt(1, QColor(0, 0, 0, 0))
         painter.fillPath(fill_path, grad)
 
-        # Desenha a linha 1 com nitidez
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(self.color_1, 1.5))
         painter.drawPath(path_1)
 
-        # 2. Curva 2
         path_2 = QPainterPath()
         for i, val in enumerate(self.history_2):
             clamped = max(self.min_2, min(self.max_2, val))

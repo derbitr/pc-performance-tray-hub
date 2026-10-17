@@ -1,11 +1,3 @@
-"""
-Módulo de Sincronização de Jogos e FPS (FPSSyncManager)
-Detecta o jogo ou aplicação gráfica em primeiro plano via Win32 e obtém a taxa de quadros (FPS)
-de forma 100% segura contra Anti-Cheats (sem injeção de DLLs ou riscos de banimento).
-Integra com RTSS (RivaTuner Statistics Server) via Memória Compartilhada Win32 quando disponível,
-e monitora consumo de CPU e RAM do jogo em tempo real.
-"""
-
 import ctypes
 from ctypes import wintypes
 import psutil
@@ -20,7 +12,6 @@ class FPSSyncManager:
         self._cached_pid: Optional[int] = None
         self._cached_proc: Optional[psutil.Process] = None
 
-        # Configura tipos 64-bit seguros para evitar corrupção de ponteiros e crash de Access Violation
         self.kernel32.OpenFileMappingW.restype = wintypes.HANDLE
         self.kernel32.OpenFileMappingW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
 
@@ -34,7 +25,6 @@ class FPSSyncManager:
         self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
     def get_rtss_fps(self) -> Optional[int]:
-        """Lê o FPS atual da memória compartilhada do RTSS (se estiver em execução)."""
         h_map = self.kernel32.OpenFileMappingW(FILE_MAP_READ, False, "RTSSSharedMemory")
         if not h_map:
             return None
@@ -50,15 +40,12 @@ class FPSSyncManager:
             sig, ver, entry_size, arr_offset, arr_size = struct.unpack_from("<IIIII", raw_hdr, 0)
 
             fps = None
-            # Valida assinatura 'RTSS' independente de endianness
             is_valid_sig = (raw_hdr[:4] == b"RTSS" or sig == 0x53535452 or sig == 0x52545353)
             if is_valid_sig and arr_size > 0:
-                # Lê a última entrada de aplicativo ativo
                 for i in range(arr_size):
                     offset = arr_offset + (i * entry_size)
                     raw_entry = ctypes.string_at(p_buf + offset, min(entry_size, 256))
                     if len(raw_entry) >= 48:
-                        # dwStatFramerate geralmente fica no offset 40 ou 44
                         cand = struct.unpack_from("<I", raw_entry, 40)[0]
                         if cand > 0 and cand < 10000:
                             fps = int(cand / 10) if cand > 1000 else cand
@@ -79,7 +66,6 @@ class FPSSyncManager:
                 pass
 
     def get_game_telemetry(self, foreground_proc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """Retorna informações completas do jogo ou aplicação ativa."""
         if not foreground_proc:
             self._cached_pid = None
             self._cached_proc = None
@@ -104,7 +90,7 @@ class FPSSyncManager:
                 if self._cached_pid != pid:
                     self._cached_pid = pid
                     self._cached_proc = psutil.Process(pid)
-                    self._cached_proc.cpu_percent(interval=None)  # Inicializa medição delta
+                    self._cached_proc.cpu_percent(interval=None)
                 else:
                     cpu_pct = self._cached_proc.cpu_percent(interval=None)
 

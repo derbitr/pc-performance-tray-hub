@@ -1,10 +1,3 @@
-"""
-Interface Gráfica do Flyout Flutuante (Full Night Mode)
-Totalmente sem emojis. Utiliza ícones vetoriais SVG, tipografia tabular e paleta True Dark.
-Permite exibir gráficos em tempo real tanto na primeira janela quanto na gaveta lateral expansível estilo jogos IDLE.
-Inclui monitoramento de GPU dedicado e sincronização de jogos/FPS segura contra Anti-Cheats.
-"""
-
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
     QSlider, QFrame, QProgressBar, QApplication
@@ -121,7 +114,6 @@ class FlyoutWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet(DARK_STYLESHEET)
 
-        # Core Engines
         self.power_mgr = PowerManager()
         self.mem_mgr = MemoryManager()
         self.proc_suspender = ProcessSuspender()
@@ -134,34 +126,28 @@ class FlyoutWindow(QWidget):
         self.gpu_monitor = GPUMonitor()
         self.fps_sync = FPSSyncManager()
 
-        # Telemetria Global
         self.total_ram_gb = psutil.virtual_memory().total / (1024 ** 3)
 
-        # Configurações Persistentes
         self.config_path = os.path.join(os.path.expanduser("~"), ".pctrayhub_config.json")
         self.is_pinned = False
         self.custom_pos = None
         self.opacity = 100
         self.wing_expanded = False
-        self.graph_location = "hub"  # "hub" (Primeira Janela) ou "wing" (Gaveta Lateral)
+        self.graph_location = "hub"
         self.show_cpu_graph = True
         self.show_ram_graph = False
         self.show_gpu_graph = False
 
         self._load_config()
 
-        # Monta Interface Gráfica
         self._build_ui()
 
-        # Aplica Localização dos Gráficos e Estado Inicial
         self._apply_graph_location(self.graph_location)
         self._apply_wing_state(reposition=False)
         self._update_graph_visibility()
 
-        # Aplica opacidade carregada
         self.setWindowOpacity(self.opacity / 100.0)
 
-        # Timer de Telemetria (1.5s)
         self.telemetry_timer = QTimer(self)
         self.telemetry_timer.timeout.connect(self._update_telemetry)
         self.telemetry_timer.start(1500)
@@ -175,16 +161,12 @@ class FlyoutWindow(QWidget):
         root_layout.setContentsMargins(10, 10, 10, 10)
         root_layout.setSpacing(8)
 
-        # ==========================================
-        # 1. PAINEL PRINCIPAL (PRIMEIRA JANELA - 380px)
-        # ==========================================
         self.main_pane = QWidget()
         self.main_pane.setFixedWidth(380)
         self.main_pane_layout = QVBoxLayout(self.main_pane)
         self.main_pane_layout.setContentsMargins(0, 0, 0, 0)
         self.main_pane_layout.setSpacing(6)
 
-        # Topo
         header = QHBoxLayout()
         icon_lbl = QLabel()
         icon_lbl.setPixmap(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 18))
@@ -226,31 +208,23 @@ class FlyoutWindow(QWidget):
         header.addWidget(idle_badge)
         self.main_pane_layout.addLayout(header)
 
-        # GADGET 1: SELETOR DE PERFIS
         self.main_pane_layout.addWidget(self._build_power_gadget())
 
-        # GADGET 2: TELEMETRIA (CLOCK & TEMPERATURA)
         self.main_pane_layout.addWidget(self._build_telemetry_gadget())
 
-        # SLOT DE GRÁFICOS NO HUB PRINCIPAL
         self.hub_graph_slot = QVBoxLayout()
         self.hub_graph_slot.setContentsMargins(0, 0, 0, 0)
         self.hub_graph_slot.setSpacing(4)
         self.main_pane_layout.addLayout(self.hub_graph_slot)
 
-        # GADGET 3: CONTROLE DE VENTOINHA
         self.main_pane_layout.addWidget(self._build_fan_gadget())
 
-        # GADGET 4: BOTÕES RÁPIDOS (LIMPAR RAM & PAUSAR LAUNCHERS)
         self.main_pane_layout.addLayout(self._build_quick_actions())
 
-        # GADGET 5: GRID DE OTIMIZAÇÕES AVANÇADAS (TIMER, GAME FOCUS, DISCO, DNS)
         self.main_pane_layout.addLayout(self._build_optimizations_grid())
 
-        # GADGET 6: CONTROLES DO HUD (OPACIDADE & SAÚDE S.M.A.R.T.)
         self.main_pane_layout.addWidget(self._build_hud_controls())
 
-        # RODAPÉ
         footer = QHBoxLayout()
         footer_lbl = QLabel("Atalho: <span style='color:#38BDF8; font-family:Consolas;'>Ctrl+Shift+F12</span>")
         footer_lbl.setTextFormat(Qt.TextFormat.RichText)
@@ -272,24 +246,17 @@ class FlyoutWindow(QWidget):
 
         root_layout.addWidget(self.main_pane)
 
-        # ==========================================
-        # 2. DIVISOR VERTICAL LATERAL (1px)
-        # ==========================================
         self.divider = QFrame()
         self.divider.setFrameShape(QFrame.Shape.VLine)
         self.divider.setStyleSheet("color: #161F30; background-color: #161F30; width: 1px;")
         root_layout.addWidget(self.divider)
 
-        # ==========================================
-        # 3. GAVETA LATERAL (SEGUNDA JANELA - 375px)
-        # ==========================================
         self.side_wing = QWidget()
         self.side_wing.setFixedWidth(375)
         self.side_wing_layout = QVBoxLayout(self.side_wing)
         self.side_wing_layout.setContentsMargins(0, 0, 0, 0)
         self.side_wing_layout.setSpacing(6)
 
-        # Topo da Gaveta
         wing_header = QHBoxLayout()
         gpu_hdr_icon = QLabel()
         gpu_hdr_icon.setPixmap(create_svg_pixmap(get_svg(ICON_GPU, "#38BDF8"), 16))
@@ -313,13 +280,10 @@ class FlyoutWindow(QWidget):
         wing_header.addWidget(self.btn_wing_collapse)
         self.side_wing_layout.addLayout(wing_header)
 
-        # Card de Placa de Vídeo (GPU)
         self.side_wing_layout.addWidget(self._build_gpu_card())
 
-        # Card de Sincronização de Jogos e FPS
         self.side_wing_layout.addWidget(self._build_game_sync_card())
 
-        # SLOT DE GRÁFICOS NA GAVETA LATERAL
         self.wing_graph_slot = QVBoxLayout()
         self.wing_graph_slot.setContentsMargins(0, 0, 0, 0)
         self.wing_graph_slot.setSpacing(4)
@@ -328,20 +292,15 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addStretch()
         root_layout.addWidget(self.side_wing)
 
-        # ==========================================
-        # 4. CONSTRUÇÃO DO PAINEL DE GRÁFICOS COMPARTILHADO
-        # ==========================================
         self._build_graph_dashboard()
 
     def _build_graph_dashboard(self):
-        """Constrói o container de gráficos com seletor de localização (No Hub vs Na Lateral) e filtros."""
         self.graph_card = QFrame()
         self.graph_card.setProperty("class", "GadgetCard")
         lay = QVBoxLayout(self.graph_card)
         lay.setContentsMargins(8, 7, 8, 7)
         lay.setSpacing(5)
 
-        # Linha 1: Título e Seletor de Onde Mostrar
         top_row = QHBoxLayout()
         lbl = QLabel("GRÁFICOS EM TEMPO REAL (30s)")
         lbl.setStyleSheet("font-size: 9px; font-weight: 700; color: #64748B; letter-spacing: 0.05em;")
@@ -365,7 +324,6 @@ class FlyoutWindow(QWidget):
         top_row.addWidget(self.btn_loc_wing)
         lay.addLayout(top_row)
 
-        # Linha 2: Filtros Individuais dos Gráficos
         pills = QHBoxLayout()
         pills.setSpacing(4)
 
@@ -385,7 +343,6 @@ class FlyoutWindow(QWidget):
         pills.addWidget(self.btn_pill_gpu)
         lay.addLayout(pills)
 
-        # Gráfico 1: CPU & Temperatura
         self.sparkline_cpu = SparklineWidget(
             self.graph_card,
             title_1="CPU %",
@@ -398,7 +355,6 @@ class FlyoutWindow(QWidget):
         )
         lay.addWidget(self.sparkline_cpu)
 
-        # Gráfico 2: Memória RAM
         self.sparkline_ram = SparklineWidget(
             self.graph_card,
             title_1="RAM %",
@@ -411,7 +367,6 @@ class FlyoutWindow(QWidget):
         )
         lay.addWidget(self.sparkline_ram)
 
-        # Gráfico 3: GPU & VRAM
         self.sparkline_gpu = SparklineWidget(
             self.graph_card,
             title_1="GPU %",
@@ -450,7 +405,6 @@ class FlyoutWindow(QWidget):
             if not self.wing_expanded:
                 self._toggle_side_wing()
 
-        # Estilo dos botões de localização
         if self.graph_location == "hub":
             self.btn_loc_hub.setStyleSheet("background-color: #1E3A8A; border: 1px solid #38BDF8; color: #FFFFFF; font-weight: 700; font-size: 9px; padding: 2px 6px;")
             self.btn_loc_wing.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 9px; padding: 2px 6px;")
@@ -502,7 +456,6 @@ class FlyoutWindow(QWidget):
         box = QHBoxLayout()
         box.setSpacing(8)
 
-        # Card Clock
         c_card = QFrame()
         c_card.setProperty("class", "GadgetCard")
         c_lay = QVBoxLayout(c_card)
@@ -530,7 +483,6 @@ class FlyoutWindow(QWidget):
         c_lay.addWidget(self.bar_cpu)
         box.addWidget(c_card)
 
-        # Card Temperatura
         t_card = QFrame()
         t_card.setProperty("class", "GadgetCard")
         t_lay = QVBoxLayout(t_card)
@@ -621,7 +573,6 @@ class FlyoutWindow(QWidget):
         grid = QGridLayout()
         grid.setSpacing(6)
 
-        # 1. Timer Resolution (0.5ms)
         self.btn_timer = QPushButton(" Timer 0.5ms")
         self.btn_timer.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_TIMER, "#38BDF8"), 13)))
         self.btn_timer.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
@@ -629,7 +580,6 @@ class FlyoutWindow(QWidget):
         self.btn_timer.clicked.connect(self._on_toggle_timer)
         grid.addWidget(self.btn_timer, 0, 0)
 
-        # 2. Game Focus (Prioridade Alta)
         self.btn_game = QPushButton(" Game Focus")
         self.btn_game.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_GAME, "#38BDF8"), 13)))
         self.btn_game.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
@@ -637,7 +587,6 @@ class FlyoutWindow(QWidget):
         self.btn_game.clicked.connect(self._on_toggle_game_focus)
         grid.addWidget(self.btn_game, 0, 1)
 
-        # 3. Limpeza SSD
         self.btn_disk = QPushButton(" Limpar SSD")
         self.btn_disk.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_CLEAN_DISK, "#38BDF8"), 13)))
         self.btn_disk.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
@@ -645,7 +594,6 @@ class FlyoutWindow(QWidget):
         self.btn_disk.clicked.connect(self._on_clean_disk)
         grid.addWidget(self.btn_disk, 1, 0)
 
-        # 4. Flush DNS
         self.btn_dns = QPushButton(" Flush DNS")
         self.btn_dns.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_NETWORK, "#38BDF8"), 13)))
         self.btn_dns.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
@@ -713,9 +661,6 @@ class FlyoutWindow(QWidget):
         except Exception:
             pass
 
-    # ==========================================
-    # GADGETS DA GAVETA LATERAL
-    # ==========================================
     def _build_gpu_card(self) -> QWidget:
         card = QFrame()
         card.setProperty("class", "GadgetCard")
@@ -745,7 +690,6 @@ class FlyoutWindow(QWidget):
         hdr.addWidget(badge)
         lay.addLayout(hdr)
 
-        # Carga GPU
         row1 = QHBoxLayout()
         lbl_l = QLabel("Carga da GPU:")
         lbl_l.setStyleSheet("font-size: 10px; color: #94A3B8;")
@@ -762,7 +706,6 @@ class FlyoutWindow(QWidget):
         self.bar_gpu_load.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #F59E0B; }")
         lay.addWidget(self.bar_gpu_load)
 
-        # VRAM
         row2 = QHBoxLayout()
         lbl_v = QLabel("Memória de Vídeo (VRAM):")
         lbl_v.setStyleSheet("font-size: 10px; color: #94A3B8;")
@@ -917,13 +860,11 @@ class FlyoutWindow(QWidget):
             btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
 
     def _update_telemetry(self):
-        # Se a janela estiver oculta, apenas monitora o Game Focus em segundo plano e poupa 100% de CPU
         if not self.isVisible():
             if hasattr(self, 'game_focus') and self.game_focus.is_active:
                 self.game_focus.check_and_boost_active()
             return
 
-        # 1. CPU & Temperatura
         metrics = self.hw_monitor.get_metrics()
         self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
         self.bar_cpu.setValue(metrics['cpu_percent'])
@@ -938,14 +879,12 @@ class FlyoutWindow(QWidget):
         if hasattr(self, 'sparkline_cpu'):
             self.sparkline_cpu.add_point(metrics['cpu_percent'], metrics['temp_c'])
 
-        # 2. Memória RAM
         mem = psutil.virtual_memory()
         ram_used_pct = mem.percent
         ram_free_gb = mem.available / (1024 ** 3)
         if hasattr(self, 'sparkline_ram'):
             self.sparkline_ram.add_point(ram_used_pct, ram_free_gb)
 
-        # 3. Placa de Vídeo (GPU)
         gpu_info = self.gpu_monitor.get_gpu_info()
         if hasattr(self, 'sparkline_gpu'):
             self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'])
@@ -957,7 +896,6 @@ class FlyoutWindow(QWidget):
             self.lbl_gpu_vram.setText(f"{gpu_info['vram_used_mb']} / {gpu_info['vram_total_mb']} MB ({gpu_info['vram_percent']}%)")
             self.bar_gpu_vram.setValue(gpu_info['vram_percent'])
 
-        # 4. Sincronização de Jogos e FPS (Anti-Cheat Safe)
         fg = self.game_focus.get_foreground_process()
         game_tel = self.fps_sync.get_game_telemetry(fg)
         if hasattr(self, 'lbl_game_name'):
@@ -977,7 +915,6 @@ class FlyoutWindow(QWidget):
                 self.lbl_fps_val.setText("Standby")
                 self.lbl_game_status.setText("Pronto para otimizar")
 
-        # 5. Monitoramento dinâmico do Game Focus
         if hasattr(self, 'game_focus') and self.game_focus.is_active:
             boosted = self.game_focus.check_and_boost_active()
             if boosted:

@@ -1,13 +1,3 @@
-"""
-Módulo de Ícones Vetoriais SVG (Full Night Mode)
-Zero emojis. Traços lineares de precisão geométrica em conformidade com a Teoria das Cores.
-Cores base:
-- Accent Azure: #38BDF8
-- Muted Slate: #94A3B8
-- Emerald Semantic: #10B981
-- Subtle Border: #1E293B
-"""
-
 ICON_BOLT = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
 </svg>"""
@@ -122,5 +112,4 @@ ICON_COLLAPSE = """<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24
 </svg>"""
 
 def get_svg(template: str, color: str = "#94A3B8") -> str:
-    """Retorna o SVG preenchido com a cor especificada."""
     return template.format(color=color)

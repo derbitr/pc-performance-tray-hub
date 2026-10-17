@@ -1,49 +1,35 @@
-"""
-Módulo de Monitoramento de Hardware e Refrigeração (HardwareMonitor)
-Coleta clock da CPU em GHz, uso percentual, temperatura em tempo real
-e gerencia o controle da velocidade da ventoinha do cooler (RPM).
-"""
-
 import psutil
 import subprocess
 from typing import Dict, Any
 
 class HardwareMonitor:
     def __init__(self):
-        self._target_fan_speed = 100  # Default 100% no modo Turbo
+        self._target_fan_speed = 100
         self._base_ambient = 32.0
-        # Inicializa medição de cpu_percent para evitar retorno 0.0 na primeira chamada
         try:
             psutil.cpu_percent(interval=None)
         except Exception:
             pass
 
     def get_metrics(self) -> Dict[str, Any]:
-        """Retorna telemetria em tempo real: GHz, uso %, temperatura e RPM estimado."""
-        # 1. Uso percentual e Clock
         cpu_usage = psutil.cpu_percent(interval=None)
         freq = psutil.cpu_freq()
         cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else 3600.0)
         clock_ghz = round(cur_freq / 1000.0, 2)
 
-        # 2. Temperatura
-        # Tenta estimar de forma precisa para o i7-7700
-        # A 10% de uso -> ~42°C; a 50% de uso -> ~56°C; a 100% de uso -> ~75°C a 85°C
         temp_c = int(round(self._base_ambient + (cpu_usage * 0.42)))
         temp_c = max(35, min(95, temp_c))
 
         if temp_c < 65:
             temp_status = "Estável"
-            temp_color = "#10B981"  # Emerald
+            temp_color = "#10B981"
         elif temp_c < 80:
             temp_status = "Aquecido"
-            temp_color = "#F59E0B"  # Amber
+            temp_color = "#F59E0B"
         else:
             temp_status = "Crítico"
-            temp_color = "#F43F5E"  # Rose
+            temp_color = "#F43F5E"
 
-        # 3. RPM estimado da ventoinha baseado no target
-        # O cooler padrão varia entre ~1.000 RPM (30%) e ~2.500 RPM (100%)
         rpm = int(1000 + ((self._target_fan_speed - 30) / 70.0) * 1500)
 
         return {
@@ -57,9 +43,7 @@ class HardwareMonitor:
         }
 
     def set_fan_speed(self, speed_percent: int) -> int:
-        """Ajusta a velocidade da ventoinha (30% a 100%)."""
         self._target_fan_speed = max(30, min(100, int(speed_percent)))
-        # Se 100%, força política de resfriamento ativo no Windows
         if self._target_fan_speed >= 90:
             self._base_ambient = 30.0
         else:
@@ -68,7 +52,6 @@ class HardwareMonitor:
 
     @staticmethod
     def get_hardware_info() -> Dict[str, str]:
-        """Detecta dinamicamente o modelo exato da CPU e quantidade de RAM em qualquer PC."""
         cpu_label = "Processador"
         try:
             import winreg
@@ -99,4 +82,3 @@ class HardwareMonitor:
             "ram": ram_label,
             "full_spec": f"{cpu_label} • {ram_label}"
         }
-

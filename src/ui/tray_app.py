@@ -1,10 +1,3 @@
-"""
-Aplicação Principal da Bandeja do Sistema (TrayApp)
-Gerencia o ícone dinâmico na System Tray ao lado do relógio,
-o menu de contexto rápido no botão direito, o flyout flutuante no clique esquerdo
-e os atalhos globais de teclado em segundo plano.
-"""
-
 from PyQt6.QtWidgets import (
     QApplication, QSystemTrayIcon, QMenu
 )
@@ -25,33 +18,26 @@ class PerformanceTrayApp:
         self.app = QApplication.instance() or QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
 
-        # Componentes
         self.power_mgr = PowerManager()
         self.mem_mgr = MemoryManager()
         self.hw_monitor = HardwareMonitor()
 
-        # Janela Flyout
         self.flyout = FlyoutWindow()
 
-        # Informações de Hardware Dinâmicas
         self.hw_info = HardwareMonitor.get_hardware_info()
 
-        # Ícone da Bandeja
         self.tray = QSystemTrayIcon()
         self.tray.setToolTip(f"Performance Tray Hub • {self.hw_info['cpu']}")
         self.tray.activated.connect(self._on_tray_activated)
         self.tray.messageClicked.connect(self.flyout.show_or_toggle)
 
-        # Menu de Contexto do Botão Direito
         self._build_context_menu()
 
-        # Atalhos Globais
         self.hotkey_worker = HotkeyWorker()
         self.hotkey_worker.hotkey_ram_triggered.connect(self._on_hotkey_ram)
         self.hotkey_worker.hotkey_turbo_triggered.connect(self._on_hotkey_turbo)
         self.hotkey_worker.start()
 
-        # Atualização Periódica do Ícone da Bandeja (a cada 2.5s)
         self.icon_timer = QTimer()
         self.icon_timer.timeout.connect(self._update_tray_icon)
         self.icon_timer.start(2500)
@@ -59,7 +45,6 @@ class PerformanceTrayApp:
         self._update_tray_icon()
         self.tray.show()
 
-        # Notificação de boas-vindas para evidenciar o ícone na bandeja
         cpu_name = self.hw_info['cpu']
         QTimer.singleShot(800, lambda: self.tray.showMessage(
             "PC Performance Hub Ativo",
@@ -69,19 +54,16 @@ class PerformanceTrayApp:
         ))
 
     def _generate_tray_pixmap(self, temp_c: int) -> QPixmap:
-        """Desenha dinamicamente um ícone vetorial de 32x32 com o raio e os graus."""
         pixmap = QPixmap(32, 32)
         pixmap.fill(Qt.GlobalColor.transparent)
 
         painter = QPainter(pixmap)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        # Fundo arredondado escuro
         painter.setBrush(QColor("#080C14"))
         painter.setPen(QColor("#1E3A8A"))
         painter.drawRoundedRect(1, 1, 30, 30, 6, 6)
 
-        # Raiozinho em ciano à esquerda
         painter.setBrush(QColor("#38BDF8"))
         painter.setPen(Qt.PenStyle.NoPen)
         from PyQt6.QtGui import QPolygon
@@ -92,7 +74,6 @@ class PerformanceTrayApp:
         ])
         painter.drawPolygon(bolt_points)
 
-        # Texto da temperatura (auto-escala para 2 ou 3 dígitos)
         painter.setPen(QColor("#F8FAFC"))
         font_size = 7 if temp_c >= 100 else 9
         font = QFont("Segoe UI", font_size, QFont.Weight.Bold)
@@ -171,7 +152,6 @@ class PerformanceTrayApp:
         self.tray.setContextMenu(menu)
 
     def _on_tray_activated(self, reason):
-        # Clique com botão esquerdo ou duplo clique abre o flyout
         if reason in (QSystemTrayIcon.ActivationReason.Trigger, QSystemTrayIcon.ActivationReason.DoubleClick):
             self.flyout.show_or_toggle()
 
@@ -196,21 +176,18 @@ class PerformanceTrayApp:
         )
 
     def _quit(self):
-        # 1. Retoma launchers suspensos se houver algum congelado
         try:
             if hasattr(self.flyout, 'proc_suspender') and self.flyout.proc_suspender.is_any_suspended:
                 self.flyout.proc_suspender.resume_all()
         except Exception:
             pass
 
-        # 2. Restaura resolução padrão do timer do Windows
         try:
             if hasattr(self.flyout, 'timer_mgr') and self.flyout.timer_mgr.is_active:
                 self.flyout.timer_mgr.set_low_latency(False)
         except Exception:
             pass
 
-        # 3. Restaura prioridade do processo se Game Focus estava ativo
         try:
             if hasattr(self.flyout, 'game_focus') and self.flyout.game_focus.is_active:
                 self.flyout.game_focus.toggle()

@@ -1,9 +1,3 @@
-"""
-Módulo de Diagnóstico Rápido e Saúde do Sistema (HealthChecker)
-Verifica o status SMART de discos (SSDs e HDDs) e analisa eventos recentes
-de integridade do sistema operacional via WMI e Event Viewer.
-"""
-
 import subprocess
 import json
 from typing import Dict, Any, List
@@ -11,7 +5,6 @@ from typing import Dict, Any, List
 class HealthChecker:
     @staticmethod
     def check_smart_disks() -> List[Dict[str, Any]]:
-        """Consulta o status de integridade física dos discos (SSD e HDD)."""
         disks = []
         try:
             cmd = "Get-PhysicalDisk | Select-Object FriendlyName, MediaType, HealthStatus, OperationalStatus | ConvertTo-Json"
@@ -36,7 +29,6 @@ class HealthChecker:
             pass
 
         if not disks:
-            # Fallback dinâmico para partições e unidades reais detectadas neste PC
             try:
                 import psutil
                 for part in psutil.disk_partitions(all=False):
@@ -56,11 +48,9 @@ class HealthChecker:
 
     @staticmethod
     def get_system_health_score() -> Dict[str, Any]:
-        """Calcula uma pontuação de integridade baseada em discos e estabilidade do SO."""
         disks = HealthChecker.check_smart_disks()
         all_disks_healthy = all(d.get("health", "").lower() == "healthy" for d in disks)
-        
-        # Base de score
+
         score = 98 if all_disks_healthy else 75
 
         return {

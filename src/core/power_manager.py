@@ -1,31 +1,24 @@
-"""
-Módulo de Gerenciamento de Esquemas de Energia (PowerManager)
-Controla perfis de energia do Windows via APIs nativas e powercfg,
-detectando dinamicamente os planos de qualquer computador (Intel, AMD, Notebooks ou Desktops).
-"""
-
 import subprocess
 import re
 from typing import Dict, Optional
 
-# GUIDs padrão do Windows (atualizados dinamicamente pelo discovery)
 SCHEMES = {
     "turbo": {
         "id": "turbo",
         "name": "Turbo Max",
-        "guid": "261561f2-df2e-4c08-be8e-41f4c8eaefb6", # Desempenho Máximo / Alto Desempenho
+        "guid": "261561f2-df2e-4c08-be8e-41f4c8eaefb6",
         "desc": "Clock máximo contínuo, resposta instantânea para jogos e trabalho pesado."
     },
     "balanced": {
         "id": "balanced",
         "name": "Equilibrado",
-        "guid": "381b4222-f694-41f0-9685-ff5bb260df2e", # Equilibrado padrão do Windows
+        "guid": "381b4222-f694-41f0-9685-ff5bb260df2e",
         "desc": "Gerenciamento dinâmico de clock e voltagem conforme a demanda."
     },
     "silent": {
         "id": "silent",
         "name": "Silencioso",
-        "guid": "a1841308-3541-4fab-bc81-f71556f20b4a", # Economia de energia
+        "guid": "a1841308-3541-4fab-bc81-f71556f20b4a",
         "desc": "Alívio térmico, clocks reduzidos e consumo mínimo de eletricidade."
     }
 }
@@ -35,7 +28,6 @@ class PowerManager:
         self._discover_schemes()
 
     def _discover_schemes(self):
-        """Mapeia dinamicamente os planos de energia presentes nesta máquina."""
         try:
             res = subprocess.run(
                 ["powercfg", "/list"],
@@ -64,7 +56,6 @@ class PowerManager:
             pass
 
     def get_active_scheme(self) -> Dict[str, str]:
-        """Retorna o esquema de energia ativo atualmente."""
         try:
             res = subprocess.run(
                 ["powercfg", "/getactivescheme"],
@@ -83,7 +74,6 @@ class PowerManager:
             return {"id": "unknown", "name": "Desconhecido", "guid": "", "desc": str(e)}
 
     def set_scheme(self, scheme_key: str) -> bool:
-        """Ativa um dos esquemas suportados ('turbo', 'balanced', 'silent')."""
         if scheme_key not in SCHEMES:
             return False
         guid = SCHEMES[scheme_key]["guid"]

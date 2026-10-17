@@ -1,19 +1,12 @@
-"""
-Módulo de Limpeza e Otimização de Memória RAM (MemoryManager)
-Utiliza APIs nativas do kernel Windows (psapi.dll e ntdll.dll)
-para esvaziar Working Sets e limpar a Standby List com ajuste de privilégios de token.
-"""
-
 import ctypes
 from ctypes import wintypes
 import psutil
 from typing import Dict, Any
 
-# Constantes Win32
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_SET_QUOTA = 0x0100
-SYSTEM_MEMORY_LIST_COMMAND = 80 # SystemMemoryListInformation
-MEMORY_PURGE_STANDBY_LIST = 2   # MemoryPurgeStandbyList
+SYSTEM_MEMORY_LIST_COMMAND = 80
+MEMORY_PURGE_STANDBY_LIST = 2
 
 TOKEN_ADJUST_PRIVILEGES = 0x0020
 TOKEN_QUERY = 0x0008
@@ -29,7 +22,6 @@ class TOKEN_PRIVILEGES(ctypes.Structure):
     _fields_ = [('PrivilegeCount', wintypes.DWORD), ('Privileges', LUID_AND_ATTRIBUTES * 1)]
 
 def _enable_privilege(priv_name: str) -> bool:
-    """Habilita privilégios específicos no token do processo caso disponíveis."""
     advapi32 = ctypes.windll.advapi32
     kernel32 = ctypes.windll.kernel32
     h_token = wintypes.HANDLE()
@@ -55,7 +47,6 @@ class MemoryManager:
         self.kernel32 = ctypes.windll.kernel32
         self.ntdll = ctypes.windll.ntdll
 
-        # Configura tipos 64-bit seguros para psapi, kernel32 e ntdll
         self.kernel32.OpenProcess.restype = wintypes.HANDLE
         self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 
@@ -68,13 +59,11 @@ class MemoryManager:
         self.ntdll.NtSetSystemInformation.restype = ctypes.c_long
         self.ntdll.NtSetSystemInformation.argtypes = [ctypes.c_int, ctypes.c_void_p, wintypes.ULONG]
 
-        # Tenta habilitar privilégios para purga de Standby List
         _enable_privilege("SeProfileSingleProcessPrivilege")
         _enable_privilege("SeIncreaseQuotaPrivilege")
 
     @staticmethod
     def get_memory_info() -> Dict[str, Any]:
-        """Retorna informações de uso da memória RAM em GB e %."""
         vm = psutil.virtual_memory()
         return {
             "total_gb": round(vm.total / (1024 ** 3), 2),
@@ -84,19 +73,13 @@ class MemoryManager:
         }
 
     def clean_ram(self) -> Dict[str, Any]:
-        """
-        Executa limpeza de memória RAM:
-        1. Esvazia Working Sets de todos os processos acessíveis do sistema.
-        2. Tenta purgar a Standby List via NtSetSystemInformation (se elevado).
-        """
         before_mem = psutil.virtual_memory().used
         processes_trimmed = 0
 
-        # 1. Purgar Working Set de processos
         for proc in psutil.process_iter(['pid', 'name']):
             try:
                 pid = proc.info['pid']
-                if pid <= 4:  # System Idle / System Process
+                if pid <= 4:
                     continue
                 handle = self.kernel32.OpenProcess(
                     PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA,
@@ -112,7 +95,6 @@ class MemoryManager:
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
 
-        # 2. Purgar Standby List
         standby_purged = False
         try:
             cmd = wintypes.ULONG(MEMORY_PURGE_STANDBY_LIST)

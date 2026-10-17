@@ -1,14 +1,8 @@
-"""
-Ponto de Entrada Principal: PC Performance Tray Hub
-Inicia a aplicação na bandeja do sistema com garantia de instância única.
-"""
-
 import sys
 import ctypes
 from ctypes import wintypes
 import os
 
-# Adiciona diretório raiz ao sys.path (suporta PyInstaller frozen e desenvolvimento)
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     sys.path.insert(0, sys._MEIPASS)
 else:

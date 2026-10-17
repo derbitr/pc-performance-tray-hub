@@ -1,9 +1,3 @@
-"""
-Módulo de Detecção e Telemetria de Placa de Vídeo (GPUMonitor)
-Detecta dinamicamente placas de vídeo dedicadas e integradas (NVIDIA, AMD, Intel)
-via Registro do Windows e APIs gráficas nativas com custo zero de CPU.
-"""
-
 import winreg
 import psutil
 from typing import Dict, Any, List
@@ -15,7 +9,6 @@ class GPUMonitor:
         self._detect_gpus()
 
     def _detect_gpus(self):
-        """Varre os adaptadores de vídeo registrados no Windows."""
         gpus = []
         base_path = r"SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}"
         try:
@@ -30,15 +23,13 @@ class GPUMonitor:
                                 except Exception:
                                     name, _ = winreg.QueryValueEx(sub_key, "Device Description")
                                 name = name.strip()
-                                
-                                # Tenta ler versão do driver
+
                                 driver_ver = "Padrão"
                                 try:
                                     driver_ver, _ = winreg.QueryValueEx(sub_key, "DriverVersion")
                                 except Exception:
                                     pass
 
-                                # Tenta ler quantidade de memória de vídeo (VRAM - QWORD ou DWORD)
                                 vram_mb = 1024
                                 try:
                                     mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.qwMemorySize")
@@ -67,19 +58,15 @@ class GPUMonitor:
         if not gpus:
             gpus = [{"name": "Adaptador de Vídeo Padrão", "vram_mb": 1024, "driver": "WDDM", "is_discrete": False}]
 
-        # Prioriza placa dedicada (NVIDIA / AMD) sobre gráficos integrados
         sorted_gpus = sorted(gpus, key=lambda g: g["is_discrete"], reverse=True)
         self.gpus = sorted_gpus
         self.primary_gpu = sorted_gpus[0]
 
     def get_gpu_info(self) -> Dict[str, Any]:
-        """Retorna telemetria atual da placa de vídeo primária."""
         name = self.primary_gpu.get("name", "GPU")
         vram_total = max(1, self.primary_gpu.get("vram_mb", 1024))
 
-        # Estimativa de telemetria suave proporcional à carga de tela
         cpu_load = psutil.cpu_percent(interval=None)
-        # Em jogos, carga de GPU sobe proporcionalmente à carga da aplicação
         simulated_gpu_load = int(min(99, max(5, cpu_load * 0.85 + 4)))
         simulated_vram_used = int(min(vram_total, max(180, (vram_total * 0.35) + (cpu_load * 3.5))))
         simulated_temp = int(min(88, max(42, 45 + (cpu_load * 0.32))))

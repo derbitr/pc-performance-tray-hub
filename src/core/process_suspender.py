@@ -1,10 +1,3 @@
-"""
-Módulo de Suspensão Inteligente de Processos (ProcessSuspender)
-Congela e retoma launchers e programas em segundo plano (Steam, Epic, Discord, Docker)
-utilizando NtSuspendProcess e NtResumeProcess para zerar o consumo de CPU
-sem fechar janelas ou perder o estado da sessão.
-"""
-
 import ctypes
 from ctypes import wintypes
 import psutil
@@ -34,7 +27,6 @@ class ProcessSuspender:
         self.ntdll = ctypes.windll.ntdll
         self._suspended_pids: Set[int] = set()
 
-        # Configura tipos 64-bit seguros para ntdll e kernel32
         self.kernel32.OpenProcess.restype = wintypes.HANDLE
         self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 
@@ -48,12 +40,10 @@ class ProcessSuspender:
         self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
     def _cleanup_dead_pids(self):
-        """Remove PIDs que já não existem mais no sistema."""
         dead = {pid for pid in self._suspended_pids if not psutil.pid_exists(pid)}
         self._suspended_pids.difference_update(dead)
 
     def get_detected_launchers(self) -> List[Dict[str, any]]:
-        """Retorna a lista de launchers atualmente em execução na máquina."""
         self._cleanup_dead_pids()
         detected = []
         for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
@@ -72,12 +62,10 @@ class ProcessSuspender:
 
     @property
     def is_any_suspended(self) -> bool:
-        """Indica se há processos atualmente congelados."""
         self._cleanup_dead_pids()
         return len(self._suspended_pids) > 0
 
     def suspend_all(self) -> int:
-        """Congela todos os launchers detectados e retorna a quantidade suspensa."""
         self._cleanup_dead_pids()
         count = 0
         launchers = self.get_detected_launchers()
@@ -96,7 +84,6 @@ class ProcessSuspender:
         return count
 
     def resume_all(self) -> int:
-        """Retoma a execução de todos os processos que foram previamente congelados."""
         count = 0
         pids_to_remove = set()
         for pid in list(self._suspended_pids):
@@ -110,7 +97,6 @@ class ProcessSuspender:
                     status = self.ntdll.NtResumeProcess(handle)
                     if status == 0:
                         count += 1
-                    # Se resume sucedeu ou se o processo rejeitou por já estar rodando
                     pids_to_remove.add(pid)
                 finally:
                     self.kernel32.CloseHandle(handle)
@@ -121,7 +107,6 @@ class ProcessSuspender:
         return count
 
     def toggle(self) -> Dict[str, any]:
-        """Alterna entre congelar e retomar todos os launchers."""
         if self.is_any_suspended:
             resumed = self.resume_all()
             return {"action": "resumed", "count": resumed, "is_suspended": False}

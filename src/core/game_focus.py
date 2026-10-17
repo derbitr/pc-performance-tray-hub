@@ -1,9 +1,3 @@
-"""
-Módulo de Otimização Game Focus (GameFocusManager)
-Prioriza o jogo ou aplicativo em tela cheia/foco (HIGH_PRIORITY_CLASS)
-e reduz o consumo de CPU em processos secundários de fundo via EcoQoS/BelowNormal.
-"""
-
 import ctypes
 from ctypes import wintypes
 import psutil
@@ -30,7 +24,6 @@ class GameFocusManager:
         self._last_boosted_pid: Optional[int] = None
         self._last_boosted_name: str = ""
 
-        # Configura tipos 64-bit seguros (HWND e HANDLE têm 64 bits em Windows x64)
         self.user32.GetForegroundWindow.restype = wintypes.HWND
         self.user32.GetForegroundWindow.argtypes = []
 
@@ -47,7 +40,6 @@ class GameFocusManager:
         self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
     def get_foreground_process(self) -> Optional[Dict[str, Any]]:
-        """Identifica o processo da janela atualmente em primeiro plano."""
         hwnd = self.user32.GetForegroundWindow()
         if not hwnd:
             return None
@@ -71,7 +63,6 @@ class GameFocusManager:
             return None
 
     def boost_process(self, pid: int, name: str) -> bool:
-        """Aplica prioridade alta no processo desejado."""
         try:
             h_proc = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, pid)
             if h_proc:
@@ -85,7 +76,6 @@ class GameFocusManager:
         return False
 
     def check_and_boost_active(self) -> Optional[Dict[str, Any]]:
-        """Chamado periodicamente para monitorar e impulsionar o jogo que entrar em foco."""
         if not self.is_active:
             return None
 
@@ -95,7 +85,6 @@ class GameFocusManager:
 
         pid = proc["pid"]
         if pid != self._last_boosted_pid:
-            # Se mudou de janela ativa, restaura a anterior se ainda existir
             if self._last_boosted_pid and psutil.pid_exists(self._last_boosted_pid):
                 try:
                     h_prev = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, self._last_boosted_pid)
@@ -111,10 +100,8 @@ class GameFocusManager:
         return None
 
     def toggle(self) -> Dict[str, Any]:
-        """Alterna o estado do Game Focus."""
         self.is_active = not self.is_active
         if self.is_active:
-            # Tenta impulsionar o foreground atual se já não for a própria UI
             proc = self.get_foreground_process()
             if proc:
                 self.boost_process(proc["pid"], proc["name"])

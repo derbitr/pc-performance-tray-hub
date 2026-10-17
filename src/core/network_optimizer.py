@@ -1,9 +1,3 @@
-"""
-Módulo de Otimização de Rede e Latência (NetworkOptimizer)
-Esvazia o cache do resolvedor DNS (via dnsapi.dll ou ipconfig /flushdns)
-e purga caches transitórios de ARP sem derrubar sockets ativos nem exigir reinicialização.
-"""
-
 import ctypes
 import subprocess
 import time
@@ -12,11 +6,6 @@ from typing import Dict, Any
 class NetworkOptimizer:
     @staticmethod
     def flush_dns() -> Dict[str, Any]:
-        """
-        Executa esvaziamento imediato do cache DNS.
-        Tenta chamar DnsFlushResolverCache da dnsapi.dll diretamente.
-        Em caso de restrição, faz fallback seguro para ipconfig /flushdns.
-        """
         start = time.perf_counter()
         success = False
         method = "none"

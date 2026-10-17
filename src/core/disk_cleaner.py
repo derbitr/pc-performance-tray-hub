@@ -1,9 +1,3 @@
-"""
-Módulo de Limpeza Segura do SSD (DiskCleaner)
-Remove arquivos temporários residuais (%TEMP% e Windows Temp),
-liberando espaço valioso no SSD WALRAM de 128GB sem tocar em dados úteis, senhas ou histórico.
-"""
-
 import os
 import shutil
 import time
@@ -16,15 +10,12 @@ class DiskCleaner:
             os.environ.get("TMP"),
             os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Temp")
         ]
-        # Filtra diretórios válidos
         self.temp_dirs = [d for d in self.temp_dirs if d and os.path.exists(d)]
 
     def clean_temp_files(self) -> Dict[str, Any]:
-        """Executa limpeza não-destrutiva de arquivos temporários órfãos."""
         freed_bytes = 0
         deleted_count = 0
         now = time.time()
-        # Não apagar arquivos acessados nos últimos 20 minutos (podem estar sendo usados agora)
         threshold_seconds = 20 * 60
 
         for d in self.temp_dirs:
@@ -33,7 +24,6 @@ class DiskCleaner:
                     for name in files:
                         filepath = os.path.join(root, name)
                         try:
-                            # Ignora arquivos criados há menos de 20min
                             stat = os.stat(filepath)
                             if now - stat.st_mtime < threshold_seconds:
                                 continue
@@ -43,7 +33,6 @@ class DiskCleaner:
                             freed_bytes += size
                             deleted_count += 1
                         except PermissionError:
-                            # Tenta remover atributo Read-Only deixado por instaladores
                             try:
                                 import stat as stat_mod
                                 os.chmod(filepath, stat_mod.S_IWRITE)
