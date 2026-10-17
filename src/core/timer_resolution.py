@@ -14,6 +14,21 @@ class TimerResolutionManager:
         self.ntdll = ctypes.windll.ntdll
         self.is_active = False
 
+        # Configura tipos para NtQueryTimerResolution
+        self.ntdll.NtQueryTimerResolution.restype = ctypes.c_long
+        self.ntdll.NtQueryTimerResolution.argtypes = [
+            ctypes.POINTER(ctypes.c_ulong),
+            ctypes.POINTER(ctypes.c_ulong),
+            ctypes.POINTER(ctypes.c_ulong)
+        ]
+
+    def __del__(self):
+        if getattr(self, "is_active", False):
+            try:
+                self.winmm.timeEndPeriod(1)
+            except Exception:
+                pass
+
     def get_resolution(self) -> Dict[str, Any]:
         """Consulta a resolução atual do timer do kernel em milissegundos."""
         min_res = ctypes.c_ulong()

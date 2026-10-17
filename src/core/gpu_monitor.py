@@ -25,7 +25,10 @@ class GPUMonitor:
                         sub = winreg.EnumKey(key, i)
                         with winreg.OpenKey(key, sub) as sub_key:
                             try:
-                                name, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
+                                try:
+                                    name, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
+                                except Exception:
+                                    name, _ = winreg.QueryValueEx(sub_key, "Device Description")
                                 name = name.strip()
                                 
                                 # Tenta ler versão do driver
@@ -35,13 +38,17 @@ class GPUMonitor:
                                 except Exception:
                                     pass
 
-                                # Tenta ler quantidade de memória de vídeo (VRAM)
+                                # Tenta ler quantidade de memória de vídeo (VRAM - QWORD ou DWORD)
                                 vram_mb = 1024
                                 try:
                                     mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.qwMemorySize")
                                     vram_mb = max(128, round(mem / (1024 ** 2)))
                                 except Exception:
-                                    pass
+                                    try:
+                                        mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.MemorySize")
+                                        vram_mb = max(128, round(mem / (1024 ** 2)))
+                                    except Exception:
+                                        pass
 
                                 is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx"))
                                 gpus.append({

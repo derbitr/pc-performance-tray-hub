@@ -46,7 +46,8 @@ def _enable_privilege(priv_name: str) -> bool:
         res = advapi32.AdjustTokenPrivileges(h_token, False, ctypes.byref(tp), ctypes.sizeof(tp), None, None)
         return res != 0
     finally:
-        kernel32.CloseHandle(h_token)
+        if h_token and h_token.value:
+            kernel32.CloseHandle(h_token)
 
 class MemoryManager:
     def __init__(self):
@@ -54,7 +55,7 @@ class MemoryManager:
         self.kernel32 = ctypes.windll.kernel32
         self.ntdll = ctypes.windll.ntdll
 
-        # Configura tipos 64-bit seguros para psapi e kernel32
+        # Configura tipos 64-bit seguros para psapi, kernel32 e ntdll
         self.kernel32.OpenProcess.restype = wintypes.HANDLE
         self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 
@@ -63,6 +64,9 @@ class MemoryManager:
 
         self.kernel32.CloseHandle.restype = wintypes.BOOL
         self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+
+        self.ntdll.NtSetSystemInformation.restype = ctypes.c_long
+        self.ntdll.NtSetSystemInformation.argtypes = [ctypes.c_int, ctypes.c_void_p, wintypes.ULONG]
 
         # Tenta habilitar privilégios para purga de Standby List
         _enable_privilege("SeProfileSingleProcessPrivilege")

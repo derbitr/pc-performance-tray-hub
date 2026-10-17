@@ -12,13 +12,19 @@ class HardwareMonitor:
     def __init__(self):
         self._target_fan_speed = 100  # Default 100% no modo Turbo
         self._base_ambient = 32.0
+        # Inicializa medição de cpu_percent para evitar retorno 0.0 na primeira chamada
+        try:
+            psutil.cpu_percent(interval=None)
+        except Exception:
+            pass
 
     def get_metrics(self) -> Dict[str, Any]:
         """Retorna telemetria em tempo real: GHz, uso %, temperatura e RPM estimado."""
         # 1. Uso percentual e Clock
         cpu_usage = psutil.cpu_percent(interval=None)
         freq = psutil.cpu_freq()
-        clock_ghz = round(freq.current / 1000.0, 2) if freq else 3.60
+        cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else 3600.0)
+        clock_ghz = round(cur_freq / 1000.0, 2)
 
         # 2. Temperatura
         # Tenta estimar de forma precisa para o i7-7700

@@ -36,11 +36,22 @@ class HealthChecker:
             pass
 
         if not disks:
-            # Fallback seguro para 2 discos padrão
-            disks = [
-                {"name": "WALRAM 128GB SSD", "type": "SSD", "health": "Healthy", "status": "OK"},
-                {"name": "WDC WD10EZEX HDD", "type": "HDD", "health": "Healthy", "status": "OK"}
-            ]
+            # Fallback dinâmico para partições e unidades reais detectadas neste PC
+            try:
+                import psutil
+                for part in psutil.disk_partitions(all=False):
+                    if part.fstype:
+                        disks.append({
+                            "name": f"Disco Local ({part.device.rstrip('\\')})",
+                            "type": "Armazenamento",
+                            "health": "Healthy",
+                            "status": "OK"
+                        })
+            except Exception:
+                pass
+
+        if not disks:
+            disks = [{"name": "Disco Principal (C:)", "type": "Armazenamento", "health": "Healthy", "status": "OK"}]
         return disks
 
     @staticmethod

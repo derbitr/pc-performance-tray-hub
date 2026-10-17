@@ -39,10 +39,10 @@ class FPSSyncManager:
         if not h_map:
             return None
 
+        p_buf = None
         try:
             p_buf = self.kernel32.MapViewOfFile(h_map, FILE_MAP_READ, 0, 0, 0)
             if not p_buf:
-                self.kernel32.CloseHandle(h_map)
                 return None
 
             import struct
@@ -64,15 +64,19 @@ class FPSSyncManager:
                             fps = int(cand / 10) if cand > 1000 else cand
                             break
 
-            self.kernel32.UnmapViewOfFile(p_buf)
-            self.kernel32.CloseHandle(h_map)
             return fps
         except Exception:
+            return None
+        finally:
+            if p_buf:
+                try:
+                    self.kernel32.UnmapViewOfFile(p_buf)
+                except Exception:
+                    pass
             try:
                 self.kernel32.CloseHandle(h_map)
             except Exception:
                 pass
-            return None
 
     def get_game_telemetry(self, foreground_proc: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Retorna informações completas do jogo ou aplicação ativa."""

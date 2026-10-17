@@ -42,8 +42,17 @@ class DiskCleaner:
                             os.remove(filepath)
                             freed_bytes += size
                             deleted_count += 1
-                        except (PermissionError, FileNotFoundError, OSError):
-                            # Arquivos em uso pelo Windows ou navegador são pulados silenciosamente
+                        except PermissionError:
+                            # Tenta remover atributo Read-Only deixado por instaladores
+                            try:
+                                import stat as stat_mod
+                                os.chmod(filepath, stat_mod.S_IWRITE)
+                                os.remove(filepath)
+                                freed_bytes += size
+                                deleted_count += 1
+                            except Exception:
+                                pass
+                        except (FileNotFoundError, OSError):
                             pass
 
                     for name in dirs:

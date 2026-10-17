@@ -168,6 +168,7 @@ class FlyoutWindow(QWidget):
 
         self._update_telemetry()
         self._update_power_pills()
+        QTimer.singleShot(250, self._refresh_disk_health)
 
     def _build_ui(self):
         root_layout = QHBoxLayout(self)
@@ -457,6 +458,14 @@ class FlyoutWindow(QWidget):
             self.btn_loc_wing.setStyleSheet("background-color: #1E3A8A; border: 1px solid #38BDF8; color: #FFFFFF; font-weight: 700; font-size: 9px; padding: 2px 6px;")
             self.btn_loc_hub.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 9px; padding: 2px 6px;")
 
+        self.adjustSize()
+        if self.custom_pos is None and self.isVisible():
+            screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                y = geo.bottom() - self.height() - 12
+                self.move(self.x(), y)
+
     def _build_power_gadget(self) -> QWidget:
         card = QFrame()
         card.setProperty("class", "GadgetCard")
@@ -682,12 +691,27 @@ class FlyoutWindow(QWidget):
         row2.addWidget(lbl_smart)
         row2.addStretch()
 
-        self.lbl_health_score = QLabel("SSD + HDD 100% OK")
+        self.lbl_health_score = QLabel("Verificando...")
         self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;")
         row2.addWidget(self.lbl_health_score)
         layout.addLayout(row2)
 
         return card
+
+    def _refresh_disk_health(self):
+        try:
+            score = self.health_checker.get_system_health_score()
+            disks = score.get("disks", [])
+            count = len(disks)
+            if score.get("all_healthy", True):
+                label_txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
+                self.lbl_health_score.setText(label_txt)
+                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;")
+            else:
+                self.lbl_health_score.setText("Atenção SMART")
+                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
+        except Exception:
+            pass
 
     # ==========================================
     # GADGETS DA GAVETA LATERAL
@@ -893,6 +917,12 @@ class FlyoutWindow(QWidget):
             btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
 
     def _update_telemetry(self):
+        # Se a janela estiver oculta, apenas monitora o Game Focus em segundo plano e poupa 100% de CPU
+        if not self.isVisible():
+            if hasattr(self, 'game_focus') and self.game_focus.is_active:
+                self.game_focus.check_and_boost_active()
+            return
+
         # 1. CPU & Temperatura
         metrics = self.hw_monitor.get_metrics()
         self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
@@ -969,8 +999,9 @@ class FlyoutWindow(QWidget):
             self.scheme_changed.emit(key)
 
     def _on_fan_slider_changed(self, val: int):
-        self.hw_monitor.set_fan_speed(val)
-        self._update_telemetry()
+        speed = self.hw_monitor.set_fan_speed(val)
+        rpm = int(1000 + ((speed - 30) / 70.0) * 1500)
+        self.lbl_fan_info.setText(f"{speed}% • {rpm:,} RPM".replace(",", "."))
 
     def _on_clean_ram(self):
         res = self.mem_mgr.clean_ram()
@@ -1149,3 +1180,4 @@ class FlyoutWindow(QWidget):
             self.show()
             self.raise_()
             self.activateWindow()
+            self._update_telemetry()

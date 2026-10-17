@@ -32,12 +32,15 @@ class AutoStartManager:
         Registra o executável ou script para iniciar no logon com privilégios elevados.
         """
         if not target_path:
-            # Aponta para o interpretador pythonw e main.py
-            pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-            if not os.path.exists(pythonw):
-                pythonw = sys.executable
-            main_py = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
-            cmd_target = f'"{pythonw}" "{main_py}"'
+            if getattr(sys, "frozen", False):
+                cmd_target = f'"{os.path.abspath(sys.executable)}"'
+            else:
+                # Aponta para o interpretador pythonw e main.py
+                pythonw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+                if not os.path.exists(pythonw):
+                    pythonw = sys.executable
+                main_py = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "main.py"))
+                cmd_target = f'"{pythonw}" "{main_py}"'
         else:
             cmd_target = f'"{os.path.abspath(target_path)}"'
 
