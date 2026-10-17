@@ -826,15 +826,22 @@ class FlyoutWindow(QWidget):
             item = self.proc_rows_layout.takeAt(0)
             widget = item.widget()
             if widget:
+                widget.setParent(None)
                 widget.deleteLater()
 
         procs = []
         for p in psutil.process_iter(['pid', 'name', 'memory_info']):
             try:
-                mem_mb = int(p.info['memory_info'].rss / (1024 * 1024))
-                name = p.info['name']
-                pid = p.info['pid']
+                info = p.info
+                mem_info = info.get('memory_info')
+                if not mem_info:
+                    continue
+                name = (info.get('name') or "").strip()
+                if not name:
+                    continue
+                pid = info.get('pid', 0)
                 if pid > 4 and name.lower() not in ('system', 'idle', 'registry', 'pctrayhub.exe', 'python.exe', 'pythonw.exe'):
+                    mem_mb = int(mem_info.rss / (1024 * 1024))
                     procs.append((name, pid, mem_mb))
             except Exception:
                 pass
@@ -933,7 +940,7 @@ class FlyoutWindow(QWidget):
             screen = QApplication.primaryScreen()
         geo = screen.availableGeometry() if screen else None
 
-        start_w = 385 if expanding else 770
+        start_w = self.width()
         end_w = 770 if expanding else 385
         start_x = self.x()
 
