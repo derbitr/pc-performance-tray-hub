@@ -370,8 +370,8 @@ class FlyoutWindow(QWidget):
             color_1="#38BDF8",
             title_2="TEMP °C",
             color_2="#10B981",
-            min_2=30.0,
-            max_2=95.0,
+            min_2=25.0,
+            max_2=85.0,
             height=50
         )
         lay.addWidget(self.sparkline_cpu)
@@ -544,32 +544,51 @@ class FlyoutWindow(QWidget):
 
         hdr = QHBoxLayout()
         fan_icon = QLabel()
-        fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#38BDF8"), 14))
+        fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#F59E0B"), 14))
         hdr.addWidget(fan_icon)
-        lbl = QLabel("Cooler da CPU (Super I/O)")
+        gpu_name = self.gpu_monitor.primary_gpu.get("name", "GPU")
+        lbl = QLabel(f"Ventoinha da GPU ({gpu_name[:14]})")
         lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #94A3B8;")
         hdr.addWidget(lbl)
         hdr.addStretch()
 
-        self.lbl_fan_info = QLabel("100% • 2.500 RPM")
-        self.lbl_fan_info.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8; font-family: 'Consolas', monospace;")
+        self.lbl_fan_info = QLabel("Auto • 1.650 RPM")
+        self.lbl_fan_info.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
         hdr.addWidget(self.lbl_fan_info)
         layout.addLayout(hdr)
+
+        pills = QHBoxLayout()
+        pills.setSpacing(4)
+        self.btn_fan_auto = QPushButton("Auto")
+        self.btn_fan_auto.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_auto.clicked.connect(lambda: self._set_gpu_fan_preset("auto"))
+        pills.addWidget(self.btn_fan_auto)
+
+        self.btn_fan_silent = QPushButton("Silêncio")
+        self.btn_fan_silent.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_silent.clicked.connect(lambda: self._set_gpu_fan_preset("silent"))
+        pills.addWidget(self.btn_fan_silent)
+
+        self.btn_fan_gaming = QPushButton("Jogos (85%)")
+        self.btn_fan_gaming.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_gaming.clicked.connect(lambda: self._set_gpu_fan_preset("gaming"))
+        pills.addWidget(self.btn_fan_gaming)
+
+        self.btn_fan_max = QPushButton("MAX")
+        self.btn_fan_max.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_max.clicked.connect(lambda: self._set_gpu_fan_preset("max"))
+        pills.addWidget(self.btn_fan_max)
+        layout.addLayout(pills)
 
         slider_box = QHBoxLayout()
         self.slider_fan = QSlider(Qt.Orientation.Horizontal)
         self.slider_fan.setRange(30, 100)
-        self.slider_fan.setValue(100)
+        self.slider_fan.setValue(50)
         self.slider_fan.valueChanged.connect(self._on_fan_slider_changed)
         slider_box.addWidget(self.slider_fan)
-
-        btn_max = QPushButton("MAX")
-        btn_max.setFixedWidth(40)
-        btn_max.setStyleSheet("font-size: 9px; font-weight: 800; color: #38BDF8; background: #0C1626; border: 1px solid #1E3A8A;")
-        btn_max.clicked.connect(lambda: self.slider_fan.setValue(100))
-        slider_box.addWidget(btn_max)
         layout.addLayout(slider_box)
 
+        self._update_gpu_fan_pills()
         return card
 
     def _build_quick_actions(self) -> QHBoxLayout:
@@ -742,6 +761,16 @@ class FlyoutWindow(QWidget):
         self.bar_gpu_vram.setFixedHeight(3)
         self.bar_gpu_vram.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #F43F5E; }")
         lay.addWidget(self.bar_gpu_vram)
+
+        row3 = QHBoxLayout()
+        lbl_fan = QLabel("Ventoinha:")
+        lbl_fan.setStyleSheet("font-size: 10px; color: #94A3B8;")
+        self.lbl_card_gpu_fan = QLabel("Auto • 1.650 RPM")
+        self.lbl_card_gpu_fan.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: Consolas;")
+        row3.addWidget(lbl_fan)
+        row3.addStretch()
+        row3.addWidget(self.lbl_card_gpu_fan)
+        lay.addLayout(row3)
 
         if len(self.gpu_monitor.gpus) > 1:
             sec = self.gpu_monitor.gpus[1]
@@ -1180,21 +1209,8 @@ class FlyoutWindow(QWidget):
             btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
 
     def _update_telemetry(self):
-        if not self.isVisible():
-            if hasattr(self, 'game_focus') and self.game_focus.is_active:
-                self.game_focus.check_and_boost_active()
-            return
-
         metrics = self.hw_monitor.get_metrics()
-        self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
-        self.bar_cpu.setValue(metrics['cpu_percent'])
-
-        self.lbl_temp.setText(f"{metrics['temp_c']}°C")
-        self.lbl_temp.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {metrics['temp_color']}; font-family: 'Consolas', monospace;")
-        self.bar_temp.setValue(metrics['temp_c'])
-        self.bar_temp.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {metrics['temp_color']}; }}")
-
-        self.lbl_fan_info.setText(f"{metrics['fan_speed_percent']}% • {metrics['fan_rpm']:,} RPM".replace(",", "."))
+        gpu_info = self.gpu_monitor.get_gpu_info()
 
         if hasattr(self, 'sparkline_cpu'):
             self.sparkline_cpu.add_point(metrics['cpu_percent'], metrics['temp_c'])
@@ -1205,9 +1221,39 @@ class FlyoutWindow(QWidget):
         if hasattr(self, 'sparkline_ram'):
             self.sparkline_ram.add_point(ram_used_pct, ram_free_gb)
 
-        gpu_info = self.gpu_monitor.get_gpu_info()
         if hasattr(self, 'sparkline_gpu'):
             self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'])
+
+        if not self.isVisible():
+            if hasattr(self, 'game_focus') and self.game_focus.is_active:
+                self.game_focus.check_and_boost_active()
+            return
+
+        self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
+        self.bar_cpu.setValue(metrics['cpu_percent'])
+
+        self.lbl_temp.setText(f"{metrics['temp_c']}°C")
+        self.lbl_temp.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {metrics['temp_color']}; font-family: 'Consolas', monospace;")
+        self.bar_temp.setValue(metrics['temp_c'])
+        self.bar_temp.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {metrics['temp_color']}; }}")
+
+        fan_speed = gpu_info["fan_speed_percent"]
+        fan_rpm = gpu_info["fan_rpm"]
+        fan_mode = gpu_info["fan_mode"]
+
+        if hasattr(self, 'lbl_fan_info'):
+            if fan_mode == "auto":
+                self.lbl_fan_info.setText(f"Auto ({fan_speed}%) • {fan_rpm:,} RPM".replace(",", "."))
+            else:
+                self.lbl_fan_info.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'lbl_card_gpu_fan'):
+            self.lbl_card_gpu_fan.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'slider_fan') and fan_mode == "auto":
+            self.slider_fan.blockSignals(True)
+            self.slider_fan.setValue(fan_speed)
+            self.slider_fan.blockSignals(False)
 
         if hasattr(self, 'lbl_gpu_name'):
             self.lbl_gpu_name.setText(gpu_info['name'])
@@ -1260,10 +1306,31 @@ class FlyoutWindow(QWidget):
             self._update_power_pills()
             self.scheme_changed.emit(key)
 
+    def _set_gpu_fan_preset(self, mode: str):
+        self.gpu_monitor.set_fan_mode(mode)
+        self._update_gpu_fan_pills()
+        self._update_telemetry()
+
+    def _update_gpu_fan_pills(self):
+        if not hasattr(self, 'btn_fan_auto'):
+            return
+        mode = self.gpu_monitor.fan_mode
+        presets = [
+            (self.btn_fan_auto, "auto"),
+            (self.btn_fan_silent, "silent"),
+            (self.btn_fan_gaming, "gaming"),
+            (self.btn_fan_max, "max")
+        ]
+        for btn, k in presets:
+            if mode == k:
+                btn.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 9px; padding: 3px 6px;")
+            else:
+                btn.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #94A3B8; font-weight: 600; font-size: 9px; padding: 3px 6px;")
+
     def _on_fan_slider_changed(self, val: int):
-        speed = self.hw_monitor.set_fan_speed(val)
-        rpm = int(1000 + ((speed - 30) / 70.0) * 1500)
-        self.lbl_fan_info.setText(f"{speed}% • {rpm:,} RPM".replace(",", "."))
+        self.gpu_monitor.set_fan_speed(val)
+        self._update_gpu_fan_pills()
+        self._update_telemetry()
 
     def _on_clean_ram(self):
         res = self.mem_mgr.clean_ram()

@@ -5,7 +5,8 @@ from typing import Dict, Any
 class HardwareMonitor:
     def __init__(self):
         self._target_fan_speed = 100
-        self._base_ambient = 32.0
+        self._base_ambient = 37.0
+        self._current_temp = 39.0
         self._base_mhz = 2500.0
         try:
             import winreg
@@ -30,8 +31,15 @@ class HardwareMonitor:
         cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else self._base_mhz)
         clock_ghz = round(cur_freq / 1000.0, 2)
 
-        temp_c = int(round(self._base_ambient + (cpu_usage * 0.42)))
-        temp_c = max(35, min(95, temp_c))
+        target_temp = self._base_ambient + (cpu_usage * 0.45)
+        target_temp = max(36.0, min(92.0, target_temp))
+
+        if target_temp > self._current_temp:
+            self._current_temp += (target_temp - self._current_temp) * 0.28
+        else:
+            self._current_temp -= (self._current_temp - target_temp) * 0.07
+
+        temp_c = int(round(self._current_temp))
 
         if temp_c < 65:
             temp_status = "Estável"
@@ -57,10 +65,6 @@ class HardwareMonitor:
 
     def set_fan_speed(self, speed_percent: int) -> int:
         self._target_fan_speed = max(30, min(100, int(speed_percent)))
-        if self._target_fan_speed >= 90:
-            self._base_ambient = 30.0
-        else:
-            self._base_ambient = 35.0
         return self._target_fan_speed
 
     @staticmethod
