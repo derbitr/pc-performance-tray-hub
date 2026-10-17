@@ -164,6 +164,16 @@ class InstallWorker(QThread):
         try:
             self.progress_changed.emit(10, "Fechando instâncias ativas do aplicativo...")
             try:
+                import psutil
+                for proc in psutil.process_iter(['name']):
+                    try:
+                        if proc.info['name'] and 'PCTrayHub.exe' in proc.info['name']:
+                            proc.kill()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            try:
                 subprocess.run(
                     ["taskkill", "/f", "/im", "PCTrayHub.exe"],
                     capture_output=True,
@@ -192,13 +202,25 @@ class InstallWorker(QThread):
                 raise FileNotFoundError("Arquivo PCTrayHub.exe não encontrado no pacote de instalação.")
 
             copied = False
-            for _ in range(5):
+            for attempt in range(5):
                 try:
                     shutil.copy2(source_exe, dest_exe)
                     copied = True
                     break
                 except PermissionError:
-                    time.sleep(0.5)
+                    try:
+                        old_file = dest_exe + f".old_{attempt}"
+                        if os.path.exists(old_file):
+                            try:
+                                os.remove(old_file)
+                            except Exception:
+                                pass
+                        os.replace(dest_exe, old_file)
+                        shutil.copy2(source_exe, dest_exe)
+                        copied = True
+                        break
+                    except Exception:
+                        time.sleep(0.4)
 
             if not copied:
                 shutil.copy2(source_exe, dest_exe)
@@ -298,21 +320,20 @@ class InstallerWindow(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet(DARK_INSTALLER_STYLE)
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setBrush(QColor("#07090E"))
-        painter.setPen(QColor("#1E293B"))
-        painter.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 12, 12)
-
         default_dir = os.path.join(
             os.environ.get("LOCALAPPDATA", "C:\\"),
             "Programs",
             "PCPerformanceTrayHub"
         )
         self.selected_dir = default_dir
-
         self._build_ui()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#07090E"))
+        painter.setPen(QColor("#1E293B"))
+        painter.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 12, 12)
 
     def _build_ui(self):
         root = QVBoxLayout(self)
