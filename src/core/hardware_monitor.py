@@ -79,6 +79,8 @@ class HardwareMonitor:
                 raw_name = str(raw_name).strip()
             import re
             m_ultra = re.search(r"Ultra\s+\d\s+\w+", raw_name, re.I)
+            m_c2 = re.search(r"Core\(TM\)2\s+(Duo|Quad)\s+(\w+)", raw_name, re.I)
+            m_new_core = re.search(r"Core\s+([3579]\s+\w+)", raw_name, re.I)
             m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
             m_ryzen = re.search(r"(Ryzen\s+(?:Threadripper\s+)?\d\s+\w+)", raw_name, re.I)
             m_xeon = re.search(r"(Xeon(?:\(R\))?\s+(?:CPU\s+)?([A-Za-z0-9\-]+(?:\s+v\d+)?))", raw_name, re.I)
@@ -87,6 +89,10 @@ class HardwareMonitor:
             m_celeron = re.search(r"(Celeron(?:\(R\))?\s+\w+)", raw_name, re.I)
             if m_ultra:
                 cpu_label = f"Core {m_ultra.group(0)}"
+            elif m_c2:
+                cpu_label = f"Core 2 {m_c2.group(1)} {m_c2.group(2)}"
+            elif m_new_core:
+                cpu_label = f"Core {m_new_core.group(1)}"
             elif m_intel:
                 cpu_label = f"Core {m_intel.group(1)}"
             elif m_ryzen:
@@ -105,6 +111,15 @@ class HardwareMonitor:
                 cpu_label = cleaned if cleaned else "Processador"
         except Exception:
             pass
+
+        if cpu_label == "Processador":
+            try:
+                import platform
+                p = platform.processor()
+                if p:
+                    cpu_label = p.split(",")[0].strip()
+            except Exception:
+                pass
 
         ram_gb = 0
         try:

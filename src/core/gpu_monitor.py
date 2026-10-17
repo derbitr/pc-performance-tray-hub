@@ -55,7 +55,13 @@ class GPUMonitor:
 
                                 nl = name.lower()
                                 is_discrete = any(brand in nl for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx", "arc"))
-                                if any(igpu in nl for igpu in ("intel(r) uhd", "intel(r) hd", "intel(r) iris", "vega 3", "vega 6", "vega 7", "vega 8", "vega 11", "radeon(tm) graphics", "radeon graphics")):
+                                igpu_markers = (
+                                    "intel(r) uhd", "intel(r) hd", "intel(r) iris", "intel(r) graphics",
+                                    "intel graphics", "intel(r) arc(tm) graphics", "intel(r) arc graphics",
+                                    "basic display", "básico", "vega 3", "vega 6", "vega 7",
+                                    "vega 8", "vega 11", "radeon(tm) graphics", "radeon graphics"
+                                )
+                                if any(igpu in nl for igpu in igpu_markers):
                                     is_discrete = False
                                 gpus.append({
                                     "name": name,

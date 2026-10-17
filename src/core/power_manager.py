@@ -28,13 +28,14 @@ class PowerManager:
         self._discover_schemes()
 
     def _discover_schemes(self):
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
             res = subprocess.run(
                 ["powercfg", "/list"],
                 capture_output=True,
                 text=True,
                 timeout=4.0,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=flags
             )
             for line in res.stdout.splitlines():
                 m = re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s+\((.+?)\)", line)
@@ -57,13 +58,14 @@ class PowerManager:
             pass
 
     def get_active_scheme(self) -> Dict[str, str]:
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
             res = subprocess.run(
                 ["powercfg", "/getactivescheme"],
                 capture_output=True,
                 text=True,
                 timeout=4.0,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=flags
             )
             out = res.stdout.lower()
             for key, data in SCHEMES.items():
@@ -79,27 +81,52 @@ class PowerManager:
         if scheme_key not in SCHEMES:
             return False
         guid = SCHEMES[scheme_key]["guid"]
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
             subprocess.run(
                 ["powercfg", "/setactive", guid],
                 check=True,
                 capture_output=True,
                 timeout=4.0,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=flags
             )
             return True
         except Exception:
-            if scheme_key == "turbo" and guid != "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c":
+            if scheme_key == "turbo":
+                fallback_guid = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
                 try:
                     subprocess.run(
-                        ["powercfg", "/setactive", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"],
+                        ["powercfg", "/setactive", fallback_guid],
                         check=True,
                         capture_output=True,
                         timeout=4.0,
-                        creationflags=subprocess.CREATE_NO_WINDOW
+                        creationflags=flags
                     )
-                    SCHEMES["turbo"]["guid"] = "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c"
+                    SCHEMES["turbo"]["guid"] = fallback_guid
                     return True
+                except Exception:
+                    pass
+
+                try:
+                    dup = subprocess.run(
+                        ["powercfg", "-duplicatescheme", fallback_guid],
+                        capture_output=True,
+                        text=True,
+                        timeout=4.0,
+                        creationflags=flags
+                    )
+                    m = re.search(r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", dup.stdout)
+                    if m:
+                        new_guid = m.group(1)
+                        subprocess.run(
+                            ["powercfg", "/setactive", new_guid],
+                            check=True,
+                            capture_output=True,
+                            timeout=4.0,
+                            creationflags=flags
+                        )
+                        SCHEMES["turbo"]["guid"] = new_guid
+                        return True
                 except Exception:
                     pass
             return False

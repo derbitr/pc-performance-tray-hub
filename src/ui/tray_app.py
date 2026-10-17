@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
+from PyQt6.QtNetwork import QLocalServer
 
 import sys
 import os
@@ -37,6 +38,11 @@ class PerformanceTrayApp:
         self.flyout.update_available.connect(self._on_update_available)
 
         self._build_context_menu()
+
+        self.ipc_server = QLocalServer()
+        self.ipc_server.removeServer("PCPerformanceTrayHub_IpcServer")
+        self.ipc_server.listen("PCPerformanceTrayHub_IpcServer")
+        self.ipc_server.newConnection.connect(self._handle_ipc_connection)
 
         self.hotkey_worker = HotkeyWorker()
         self.hotkey_worker.hotkey_ram_triggered.connect(self._on_hotkey_ram)
@@ -212,7 +218,36 @@ class PerformanceTrayApp:
             2000
         )
 
+    def _handle_ipc_connection(self):
+        client = self.ipc_server.nextPendingConnection()
+        if client:
+            client.readyRead.connect(lambda: self._on_ipc_message(client))
+
+    def _on_ipc_message(self, client):
+        try:
+            msg = bytes(client.readAll()).decode("utf-8", errors="ignore").strip()
+            if msg == "show":
+                if not self.flyout.isVisible():
+                    self.flyout.show_or_toggle()
+                else:
+                    self.flyout.activateWindow()
+                    self.flyout.raise_()
+        except Exception:
+            pass
+        finally:
+            try:
+                client.disconnectFromServer()
+            except Exception:
+                pass
+
     def _quit(self):
+        try:
+            if hasattr(self, 'ipc_server'):
+                self.ipc_server.close()
+                self.ipc_server.removeServer("PCPerformanceTrayHub_IpcServer")
+        except Exception:
+            pass
+
         try:
             if hasattr(self.flyout, 'proc_suspender') and self.flyout.proc_suspender.is_any_suspended:
                 self.flyout.proc_suspender.resume_all()

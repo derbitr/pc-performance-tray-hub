@@ -687,19 +687,30 @@ class FlyoutWindow(QWidget):
         return card
 
     def _refresh_disk_health(self):
-        try:
-            score = self.health_checker.get_system_health_score()
-            disks = score.get("disks", [])
-            count = len(disks)
-            if score.get("all_healthy", True):
-                label_txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
-                self.lbl_health_score.setText(label_txt)
-                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;")
-            else:
-                self.lbl_health_score.setText("Atenção SMART")
-                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
-        except Exception:
-            pass
+        import threading
+        def worker():
+            try:
+                score = self.health_checker.get_system_health_score()
+                disks = score.get("disks", [])
+                count = len(disks)
+                all_ok = score.get("all_healthy", True)
+                if all_ok:
+                    txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
+                    style = "font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;"
+                else:
+                    txt = "Atenção SMART"
+                    style = "font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;"
+                QTimer.singleShot(0, lambda: self._apply_disk_health(txt, style))
+            except Exception:
+                pass
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
+    def _apply_disk_health(self, text: str, style: str):
+        if hasattr(self, 'lbl_health_score'):
+            self.lbl_health_score.setText(text)
+            self.lbl_health_score.setStyleSheet(style)
 
     def _build_gpu_card(self) -> QWidget:
         card = QFrame()
@@ -864,13 +875,6 @@ class FlyoutWindow(QWidget):
         if not hasattr(self, 'proc_rows_layout'):
             return
 
-        while self.proc_rows_layout.count() > 0:
-            item = self.proc_rows_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-                widget.deleteLater()
-
         procs = []
         for p in psutil.process_iter(['pid', 'name', 'memory_info']):
             try:
@@ -890,6 +894,22 @@ class FlyoutWindow(QWidget):
 
         procs.sort(key=lambda x: x[2], reverse=True)
         top = procs[:3]
+
+        cached = getattr(self, "_cached_proc_rows", [])
+        if len(top) == len(cached) and len(top) > 0 and all(top[i][1] == cached[i]["pid"] for i in range(len(top))):
+            for i, (name, pid, mem) in enumerate(top):
+                cached[i]["mem_lbl"].setText(f"{mem} MB")
+                cached[i]["name_lbl"].setText(name)
+            return
+
+        while self.proc_rows_layout.count() > 0:
+            item = self.proc_rows_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        self._cached_proc_rows = []
 
         if not top:
             empty_lbl = QLabel("Nenhum processo pesado ativo.")
@@ -922,7 +942,15 @@ class FlyoutWindow(QWidget):
             row_widget.setLayout(row)
             self.proc_rows_layout.addWidget(row_widget)
 
+            self._cached_proc_rows.append({
+                "pid": pid,
+                "name_lbl": p_lbl,
+                "mem_lbl": mem_lbl,
+                "widget": row_widget
+            })
+
     def _kill_process(self, pid: int):
+        self._cached_proc_rows = []
         try:
             p = psutil.Process(pid)
             p.terminate()
@@ -930,10 +958,11 @@ class FlyoutWindow(QWidget):
         except Exception:
             try:
                 import subprocess
+                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
                 subprocess.run(
                     ["taskkill", "/f", "/pid", str(pid)],
                     timeout=2.0,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                    creationflags=flags
                 )
                 QTimer.singleShot(300, self._update_top_processes)
             except Exception:
@@ -1335,7 +1364,10 @@ class FlyoutWindow(QWidget):
     def _on_clean_ram(self):
         res = self.mem_mgr.clean_ram()
         freed = res.get("freed_mb", 0)
-        self.btn_ram.setText(f" +{freed} MB!")
+        if freed > 0:
+            self.btn_ram.setText(f" +{freed} MB!")
+        else:
+            self.btn_ram.setText(" Otimizado!")
         QTimer.singleShot(2000, lambda: self.btn_ram.setText(" Limpar RAM"))
 
     def _on_toggle_suspend(self):
@@ -1372,7 +1404,10 @@ class FlyoutWindow(QWidget):
     def _on_clean_disk(self):
         res = self.disk_cleaner.clean_temp_files()
         freed = res.get("freed_mb", 0)
-        self.btn_disk.setText(f" -{freed} MB!")
+        if freed > 0:
+            self.btn_disk.setText(f" -{freed} MB!")
+        else:
+            self.btn_disk.setText(" Limpo!")
         QTimer.singleShot(2500, lambda: self.btn_disk.setText(" Limpar SSD"))
 
     def _on_flush_dns(self):

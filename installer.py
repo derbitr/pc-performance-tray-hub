@@ -108,11 +108,12 @@ def create_windows_shortcut(target_exe: str, lnk_path: str, work_dir: str, icon_
         f"$s.IconLocation = '{icon_esc},0'; "
         f"$s.Save()"
     )
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
     subprocess.run(
         ["powershell", "-NoProfile", "-Command", script],
         capture_output=True,
         text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW
+        creationflags=flags
     )
 
 class InstallWorker(QThread):
@@ -127,12 +128,13 @@ class InstallWorker(QThread):
         self.startmenu_lnk = startmenu_lnk
 
     def run(self):
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
             self.progress_changed.emit(10, "Fechando instâncias ativas do aplicativo...")
             subprocess.run(
                 ["taskkill", "/f", "/im", "PCTrayHub.exe"],
                 capture_output=True,
-                creationflags=subprocess.CREATE_NO_WINDOW
+                creationflags=flags
             )
             time.sleep(0.4)
 
@@ -193,7 +195,16 @@ class InstallWorker(QThread):
                     "/rl", "highest",
                     "/f"
                 ]
-                subprocess.run(cmd, capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                res_task = subprocess.run(cmd, capture_output=True, creationflags=flags)
+                if res_task.returncode != 0:
+                    cmd_fallback = [
+                        "schtasks", "/create",
+                        "/tn", "PCPerformanceTrayHub",
+                        "/tr", f'"{dest_exe}"',
+                        "/sc", "onlogon",
+                        "/f"
+                    ]
+                    subprocess.run(cmd_fallback, capture_output=True, creationflags=flags)
 
             self.progress_changed.emit(90, "Registrando desinstalador no Painel de Controle...")
             uninstaller_bat = os.path.join(self.target_dir, "uninstall.bat")
@@ -225,11 +236,11 @@ class InstallWorker(QThread):
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
             started = False
             if self.autostart:
-                res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, creationflags=flags)
                 if res.returncode == 0:
                     started = True
             if not started:
-                subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=subprocess.CREATE_NO_WINDOW)
+                subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=flags)
 
             self.progress_changed.emit(100, "Instalação concluída com sucesso!")
             self.install_finished.emit(True, dest_exe)

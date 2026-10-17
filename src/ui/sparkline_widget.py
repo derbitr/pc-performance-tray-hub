@@ -72,7 +72,8 @@ class SparklineWidget(QWidget):
         painter.drawText(50, 12, self.title_2)
 
         painter.setPen(QColor("#475569"))
-        painter.drawText(w - 65, 12, "HISTORICO 30s")
+        th_w = painter.fontMetrics().horizontalAdvance("HISTORICO 30s")
+        painter.drawText(w - th_w - 8, 12, "HISTORICO 30s")
 
         plot_left = 8
         plot_right = w - 8
