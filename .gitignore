@@ -1,0 +1,26 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller & Build artifacts
+build/
+dist/
+*.spec
+*.exe
+
+# Ambientes virtuais
+venv/
+env/
+.env/
+
+# Configurações locais do usuário
+.pctrayhub_config.json
+*.log
+
+# Caches de agentes e testes
+.superpowers/
+.swarm/
+*.tmp
+test_*.png
+test_*.ico

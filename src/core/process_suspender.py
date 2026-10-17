@@ -1,0 +1,102 @@
+"""
+Módulo de Suspensão Inteligente de Processos (ProcessSuspender)
+Congela e retoma launchers e programas em segundo plano (Steam, Epic, Discord, Docker)
+utilizando NtSuspendProcess e NtResumeProcess para zerar o consumo de CPU
+sem fechar janelas ou perder o estado da sessão.
+"""
+
+import ctypes
+import psutil
+from typing import List, Dict, Set
+
+# Processos comuns conhecidos por consumir CPU/RAM em segundo plano
+TARGET_LAUNCHERS = {
+    "steam.exe": "Steam",
+    "epicgameslauncher.exe": "Epic Games",
+    "discord.exe": "Discord",
+    "docker desktop.exe": "Docker Desktop",
+    "com.docker.backend.exe": "Docker Backend",
+    "overwolf.exe": "Overwolf",
+    "overwolflauncher.exe": "Overwolf Launcher",
+    "eadesktop.exe": "EA Desktop",
+    "eadp.exe": "EA App",
+    "riotclientservices.exe": "Riot Client",
+    "spotify.exe": "Spotify",
+    "onedrive.exe": "OneDrive",
+    "taskbarhero.exe": "TaskBarHero"
+}
+
+PROCESS_SUSPEND_RESUME = 0x0800
+
+class ProcessSuspender:
+    def __init__(self):
+        self.kernel32 = ctypes.windll.kernel32
+        self.ntdll = ctypes.windll.ntdll
+        self._suspended_pids: Set[int] = set()
+
+    def get_detected_launchers(self) -> List[Dict[str, any]]:
+        """Retorna a lista de launchers atualmente em execução na máquina."""
+        detected = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+            try:
+                name = (proc.info['name'] or "").lower()
+                if name in TARGET_LAUNCHERS:
+                    detected.append({
+                        "pid": proc.info['pid'],
+                        "name": TARGET_LAUNCHERS[name],
+                        "process_name": name,
+                        "is_suspended": proc.info['pid'] in self._suspended_pids
+                    })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return detected
+
+    @property
+    def is_any_suspended(self) -> bool:
+        """Indica se há processos atualmente congelados."""
+        return len(self._suspended_pids) > 0
+
+    def suspend_all(self) -> int:
+        """Congela todos os launchers detectados e retorna a quantidade suspensa."""
+        count = 0
+        launchers = self.get_detected_launchers()
+        for item in launchers:
+            pid = item['pid']
+            if pid in self._suspended_pids:
+                continue
+            handle = self.kernel32.OpenProcess(PROCESS_SUSPEND_RESUME, False, pid)
+            if handle:
+                try:
+                    if self.ntdll.NtSuspendProcess(handle) == 0:
+                        self._suspended_pids.add(pid)
+                        count += 1
+                finally:
+                    self.kernel32.CloseHandle(handle)
+        return count
+
+    def resume_all(self) -> int:
+        """Retoma a execução de todos os processos que foram previamente congelados."""
+        count = 0
+        pids_to_remove = set()
+        for pid in list(self._suspended_pids):
+            handle = self.kernel32.OpenProcess(PROCESS_SUSPEND_RESUME, False, pid)
+            if handle:
+                try:
+                    if self.ntdll.NtResumeProcess(handle) == 0:
+                        count += 1
+                        pids_to_remove.add(pid)
+                finally:
+                    self.kernel32.CloseHandle(handle)
+            else:
+                pids_to_remove.add(pid)  # O processo já foi fechado pelo usuário
+        self._suspended_pids.difference_update(pids_to_remove)
+        return count
+
+    def toggle(self) -> Dict[str, any]:
+        """Alterna entre congelar e retomar todos os launchers."""
+        if self.is_any_suspended:
+            resumed = self.resume_all()
+            return {"action": "resumed", "count": resumed, "is_suspended": False}
+        else:
+            suspended = self.suspend_all()
+            return {"action": "suspended", "count": suspended, "is_suspended": self.is_any_suspended}

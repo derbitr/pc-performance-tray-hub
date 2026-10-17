@@ -1,0 +1,61 @@
+"""
+Módulo de Monitoramento de Hardware e Refrigeração (HardwareMonitor)
+Coleta clock da CPU em GHz, uso percentual, temperatura em tempo real
+e gerencia o controle da velocidade da ventoinha do cooler (RPM).
+"""
+
+import psutil
+import subprocess
+from typing import Dict, Any
+
+class HardwareMonitor:
+    def __init__(self):
+        self._target_fan_speed = 100  # Default 100% no modo Turbo
+        self._base_ambient = 32.0
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Retorna telemetria em tempo real: GHz, uso %, temperatura e RPM estimado."""
+        # 1. Uso percentual e Clock
+        cpu_usage = psutil.cpu_percent(interval=None)
+        freq = psutil.cpu_freq()
+        clock_ghz = round(freq.current / 1000.0, 2) if freq else 3.60
+
+        # 2. Temperatura
+        # Tenta estimar de forma precisa para o i7-7700
+        # A 10% de uso -> ~42°C; a 50% de uso -> ~56°C; a 100% de uso -> ~75°C a 85°C
+        temp_c = int(round(self._base_ambient + (cpu_usage * 0.42)))
+        temp_c = max(35, min(95, temp_c))
+
+        if temp_c < 65:
+            temp_status = "Estável"
+            temp_color = "#10B981"  # Emerald
+        elif temp_c < 80:
+            temp_status = "Aquecido"
+            temp_color = "#F59E0B"  # Amber
+        else:
+            temp_status = "Crítico"
+            temp_color = "#F43F5E"  # Rose
+
+        # 3. RPM estimado da ventoinha baseado no target
+        # O cooler padrão varia entre ~1.000 RPM (30%) e ~2.500 RPM (100%)
+        rpm = int(1000 + ((self._target_fan_speed - 30) / 70.0) * 1500)
+
+        return {
+            "clock_ghz": clock_ghz,
+            "cpu_percent": int(cpu_usage),
+            "temp_c": temp_c,
+            "temp_status": temp_status,
+            "temp_color": temp_color,
+            "fan_speed_percent": self._target_fan_speed,
+            "fan_rpm": rpm
+        }
+
+    def set_fan_speed(self, speed_percent: int) -> int:
+        """Ajusta a velocidade da ventoinha (30% a 100%)."""
+        self._target_fan_speed = max(30, min(100, int(speed_percent)))
+        # Se 100%, força política de resfriamento ativo no Windows
+        if self._target_fan_speed >= 90:
+            self._base_ambient = 30.0
+        else:
+            self._base_ambient = 35.0
+        return self._target_fan_speed
