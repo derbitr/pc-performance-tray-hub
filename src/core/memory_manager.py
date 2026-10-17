@@ -1,3 +1,4 @@
+import os
 import ctypes
 from ctypes import wintypes
 import psutil
@@ -24,6 +25,13 @@ class TOKEN_PRIVILEGES(ctypes.Structure):
 def _enable_privilege(priv_name: str) -> bool:
     advapi32 = ctypes.windll.advapi32
     kernel32 = ctypes.windll.kernel32
+    advapi32.OpenProcessToken.restype = wintypes.BOOL
+    advapi32.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+    advapi32.LookupPrivilegeValueW.restype = wintypes.BOOL
+    advapi32.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+    advapi32.AdjustTokenPrivileges.restype = wintypes.BOOL
+    advapi32.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TOKEN_PRIVILEGES), wintypes.DWORD, ctypes.c_void_p, ctypes.c_void_p]
+
     h_token = wintypes.HANDLE()
     if not advapi32.OpenProcessToken(kernel32.GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, ctypes.byref(h_token)):
         return False
@@ -75,11 +83,12 @@ class MemoryManager:
     def clean_ram(self) -> Dict[str, Any]:
         before_mem = psutil.virtual_memory().used
         processes_trimmed = 0
+        current_pid = os.getpid()
 
         for proc in psutil.process_iter(['pid', 'name']):
             try:
                 pid = proc.info['pid']
-                if pid <= 4:
+                if pid <= 4 or pid == current_pid:
                     continue
                 handle = self.kernel32.OpenProcess(
                     PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA,

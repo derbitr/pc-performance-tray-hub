@@ -5,12 +5,19 @@ from typing import Dict, Any
 
 class DiskCleaner:
     def __init__(self):
-        self.temp_dirs = [
+        raw_dirs = [
             os.environ.get("TEMP"),
             os.environ.get("TMP"),
             os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "Temp")
         ]
-        self.temp_dirs = [d for d in self.temp_dirs if d and os.path.exists(d)]
+        seen = set()
+        self.temp_dirs = []
+        for d in raw_dirs:
+            if d and os.path.exists(d):
+                norm = os.path.normcase(os.path.abspath(d))
+                if norm not in seen:
+                    seen.add(norm)
+                    self.temp_dirs.append(norm)
 
     def clean_temp_files(self) -> Dict[str, Any]:
         freed_bytes = 0

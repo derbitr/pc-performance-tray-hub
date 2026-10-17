@@ -38,6 +38,12 @@ class HotkeyWorker(QThread):
         self.user32.PostThreadMessageW.restype = wintypes.BOOL
         self.user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 
+        self.user32.TranslateMessage.restype = wintypes.BOOL
+        self.user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
+
+        self.user32.DispatchMessageW.restype = wintypes.LPARAM
+        self.user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
+
     def run(self):
         self.thread_id = self.kernel32.GetCurrentThreadId()
 

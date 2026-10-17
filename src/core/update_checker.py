@@ -12,10 +12,12 @@ RELEASES_PAGE_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases"
 
 def parse_version(ver_str: str) -> Tuple[int, int, int]:
     cleaned = str(ver_str).strip().lstrip("vV")
+    base = cleaned.split("-")[0].split("+")[0]
     parts = []
-    for x in cleaned.split("."):
+    for x in base.split("."):
+        num_str = "".join(c for c in x if c.isdigit())
         try:
-            parts.append(int(x))
+            parts.append(int(num_str) if num_str else 0)
         except ValueError:
             parts.append(0)
     while len(parts) < 3:

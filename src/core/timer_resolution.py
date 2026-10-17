@@ -8,6 +8,11 @@ class TimerResolutionManager:
         self.ntdll = ctypes.windll.ntdll
         self.is_active = False
 
+        self.winmm.timeBeginPeriod.restype = wintypes.UINT
+        self.winmm.timeBeginPeriod.argtypes = [wintypes.UINT]
+        self.winmm.timeEndPeriod.restype = wintypes.UINT
+        self.winmm.timeEndPeriod.argtypes = [wintypes.UINT]
+
         self.ntdll.NtQueryTimerResolution.restype = ctypes.c_long
         self.ntdll.NtQueryTimerResolution.argtypes = [
             ctypes.POINTER(ctypes.c_ulong),
@@ -42,11 +47,13 @@ class TimerResolutionManager:
 
     def set_low_latency(self, enable: bool = True) -> bool:
         if enable:
-            res = self.winmm.timeBeginPeriod(1)
-            self.is_active = (res == 0)
+            if not self.is_active:
+                res = self.winmm.timeBeginPeriod(1)
+                self.is_active = (res == 0)
         else:
-            res = self.winmm.timeEndPeriod(1)
-            self.is_active = False
+            if self.is_active:
+                self.winmm.timeEndPeriod(1)
+                self.is_active = False
         return self.is_active
 
     def toggle(self) -> Dict[str, Any]:

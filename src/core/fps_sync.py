@@ -1,5 +1,6 @@
 import ctypes
 from ctypes import wintypes
+import struct
 import psutil
 from typing import Dict, Any, Optional
 
@@ -35,15 +36,16 @@ class FPSSyncManager:
             if not p_buf:
                 return None
 
-            import struct
             raw_hdr = ctypes.string_at(p_buf, 32)
             sig, ver, entry_size, arr_offset, arr_size = struct.unpack_from("<IIIII", raw_hdr, 0)
 
             fps = None
             is_valid_sig = (raw_hdr[:4] == b"RTSS" or sig == 0x53535452 or sig == 0x52545353)
-            if is_valid_sig and arr_size > 0:
-                for i in range(arr_size):
+            if is_valid_sig and 0 < arr_size <= 32 and 0 < entry_size <= 65536:
+                for i in range(min(arr_size, 32)):
                     offset = arr_offset + (i * entry_size)
+                    if offset < 0 or offset + 48 > 65536:
+                        break
                     raw_entry = ctypes.string_at(p_buf + offset, min(entry_size, 256))
                     if len(raw_entry) >= 48:
                         cand = struct.unpack_from("<I", raw_entry, 40)[0]

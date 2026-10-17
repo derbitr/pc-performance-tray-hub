@@ -39,6 +39,12 @@ class ProcessSuspender:
         self.kernel32.CloseHandle.restype = wintypes.BOOL
         self.kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
+    def __del__(self):
+        try:
+            self.resume_all()
+        except Exception:
+            pass
+
     def _cleanup_dead_pids(self):
         dead = {pid for pid in self._suspended_pids if not psutil.pid_exists(pid)}
         self._suspended_pids.difference_update(dead)

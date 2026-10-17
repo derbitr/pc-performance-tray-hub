@@ -847,7 +847,7 @@ class FlyoutWindow(QWidget):
                 if not name:
                     continue
                 pid = info.get('pid', 0)
-                if pid > 4 and name.lower() not in ('system', 'idle', 'registry', 'pctrayhub.exe', 'python.exe', 'pythonw.exe'):
+                if pid > 4 and pid != os.getpid() and name.lower() not in ('system', 'idle', 'registry', 'pctrayhub.exe', 'python.exe', 'pythonw.exe'):
                     mem_mb = int(mem_info.rss / (1024 * 1024))
                     procs.append((name, pid, mem_mb))
             except Exception:
@@ -893,7 +893,16 @@ class FlyoutWindow(QWidget):
             p.terminate()
             QTimer.singleShot(300, self._update_top_processes)
         except Exception:
-            pass
+            try:
+                import subprocess
+                subprocess.run(
+                    ["taskkill", "/f", "/pid", str(pid)],
+                    timeout=2.0,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                )
+                QTimer.singleShot(300, self._update_top_processes)
+            except Exception:
+                pass
 
     def _copy_diagnostic_report(self):
         try:
@@ -1224,7 +1233,9 @@ class FlyoutWindow(QWidget):
                 self.btn_game.setText(f" Focus: {name[:7]}")
 
         if getattr(self, "wing_expanded", False) and hasattr(self, "proc_rows_layout"):
-            self._update_top_processes()
+            self._proc_tick = getattr(self, "_proc_tick", 0) + 1
+            if self._proc_tick % 2 == 0:
+                self._update_top_processes()
 
     def _update_power_pills(self):
         active = self.power_mgr.get_active_scheme()
@@ -1403,6 +1414,10 @@ class FlyoutWindow(QWidget):
         self.move(x, y)
         self.custom_pos = None
         self._save_config()
+
+    def closeEvent(self, event):
+        event.ignore()
+        self.hide()
 
     def changeEvent(self, event):
         from PyQt6.QtCore import QEvent

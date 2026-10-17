@@ -13,7 +13,11 @@ class HardwareMonitor:
 
     def get_metrics(self) -> Dict[str, Any]:
         cpu_usage = psutil.cpu_percent(interval=None)
-        freq = psutil.cpu_freq()
+        freq = None
+        try:
+            freq = psutil.cpu_freq()
+        except Exception:
+            pass
         cur_freq = freq.current if (freq and freq.current and freq.current > 100.0) else (freq.max if (freq and freq.max and freq.max > 100.0) else 3600.0)
         clock_ghz = round(cur_freq / 1000.0, 2)
 
@@ -57,7 +61,9 @@ class HardwareMonitor:
             import winreg
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
                 raw_name, _ = winreg.QueryValueEx(key, "ProcessorNameString")
-                raw_name = raw_name.strip()
+                if isinstance(raw_name, bytes):
+                    raw_name = raw_name.decode("utf-8", errors="ignore")
+                raw_name = str(raw_name).strip()
             import re
             m_intel = re.search(r"(i\d-\w+)", raw_name, re.I)
             m_ryzen = re.search(r"(Ryzen\s+\d\s+\w+)", raw_name, re.I)

@@ -30,12 +30,17 @@ class SparklineWidget(QWidget):
         self.history_2 = deque([min_2 + (max_2 - min_2) * 0.3] * max_points, maxlen=max_points)
 
     def add_point(self, val_1: float, val_2: float):
+        import math
         try:
             v1 = float(val_1) if val_1 is not None else 0.0
+            if math.isnan(v1) or math.isinf(v1):
+                v1 = 0.0
         except (ValueError, TypeError):
             v1 = 0.0
         try:
             v2 = float(val_2) if val_2 is not None else self.min_2
+            if math.isnan(v2) or math.isinf(v2):
+                v2 = self.min_2
         except (ValueError, TypeError):
             v2 = self.min_2
         self.history_1.append(v1)

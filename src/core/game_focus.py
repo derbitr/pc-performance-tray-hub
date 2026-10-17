@@ -51,13 +51,17 @@ class GameFocusManager:
 
         try:
             p = psutil.Process(pid.value)
-            name = (p.name() or "").lower()
-            if name in SYSTEM_IGNORED_NAMES:
+            proc_name = p.name() or ""
+            if proc_name.lower() in SYSTEM_IGNORED_NAMES:
                 return None
+            try:
+                exe_path = p.exe()
+            except Exception:
+                exe_path = proc_name
             return {
                 "pid": pid.value,
-                "name": p.name(),
-                "exe": p.exe() if hasattr(p, "exe") else p.name()
+                "name": proc_name,
+                "exe": exe_path
             }
         except Exception:
             return None

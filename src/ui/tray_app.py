@@ -231,6 +231,17 @@ class PerformanceTrayApp:
         except Exception:
             pass
 
+        try:
+            self.icon_timer.stop()
+        except Exception:
+            pass
+
+        try:
+            if hasattr(self.flyout, 'telemetry_timer'):
+                self.flyout.telemetry_timer.stop()
+        except Exception:
+            pass
+
         self.hotkey_worker.stop()
         self.tray.hide()
         self.app.quit()

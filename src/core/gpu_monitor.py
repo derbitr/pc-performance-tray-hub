@@ -26,6 +26,9 @@ class GPUMonitor:
                                     name = name.decode("utf-8", errors="ignore")
                                 name = str(name).strip()
 
+                                if not name or any(v in name.lower() for v in ("rdpdd", "remote display", "citrix", "indirect display")):
+                                    continue
+
                                 driver_ver = "Padrão"
                                 try:
                                     driver_ver, _ = winreg.QueryValueEx(sub_key, "DriverVersion")
@@ -50,7 +53,7 @@ class GPUMonitor:
                                     except Exception:
                                         pass
 
-                                is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx"))
+                                is_discrete = any(brand in name.lower() for brand in ("nvidia", "geforce", "radeon", "rtx", "gtx", "arc"))
                                 gpus.append({
                                     "name": name,
                                     "vram_mb": vram_mb,
@@ -77,7 +80,7 @@ class GPUMonitor:
 
         cpu_load = psutil.cpu_percent(interval=None)
         simulated_gpu_load = int(min(99, max(5, cpu_load * 0.85 + 4)))
-        simulated_vram_used = int(min(vram_total, max(180, (vram_total * 0.35) + (cpu_load * 3.5))))
+        simulated_vram_used = int(min(vram_total, max(32, int((vram_total * 0.35) + ((cpu_load / 100.0) * (vram_total * 0.3))))))
         simulated_temp = int(min(88, max(42, 45 + (cpu_load * 0.32))))
 
         return {

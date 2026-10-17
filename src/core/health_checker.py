@@ -20,11 +20,16 @@ class HealthChecker:
                 if isinstance(data, dict):
                     data = [data]
                 for d in data:
+                    op_status = d.get("OperationalStatus", "OK")
+                    if isinstance(op_status, list):
+                        op_status = str(op_status[0]) if op_status else "OK"
+                    else:
+                        op_status = str(op_status)
                     disks.append({
-                        "name": d.get("FriendlyName", "Disco"),
-                        "type": d.get("MediaType", "Armazenamento"),
-                        "health": d.get("HealthStatus", "Healthy"),
-                        "status": d.get("OperationalStatus", "OK")
+                        "name": str(d.get("FriendlyName", "Disco")),
+                        "type": str(d.get("MediaType", "Armazenamento")),
+                        "health": str(d.get("HealthStatus", "Healthy")),
+                        "status": op_status
                     })
         except Exception:
             pass
