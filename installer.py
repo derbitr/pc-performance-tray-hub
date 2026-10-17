@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QFrame
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 from PyQt6.QtSvg import QSvgRenderer
 
@@ -96,25 +96,57 @@ def get_bundle_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 def create_windows_shortcut(target_exe: str, lnk_path: str, work_dir: str, icon_path: str):
-    lnk_esc = lnk_path.replace("'", "''")
-    target_esc = target_exe.replace("'", "''")
-    work_esc = work_dir.replace("'", "''")
-    icon_esc = icon_path.replace("'", "''")
-    script = (
-        f"$ws = New-Object -ComObject WScript.Shell; "
-        f"$s = $ws.CreateShortcut('{lnk_esc}'); "
-        f"$s.TargetPath = '{target_esc}'; "
-        f"$s.WorkingDirectory = '{work_esc}'; "
-        f"$s.IconLocation = '{icon_esc},0'; "
-        f"$s.Save()"
-    )
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
-    subprocess.run(
-        ["powershell", "-NoProfile", "-Command", script],
-        capture_output=True,
-        text=True,
-        creationflags=flags
-    )
+    created = False
+    try:
+        import tempfile
+        vbs_path = os.path.join(tempfile.gettempdir(), "_create_hub_lnk.vbs")
+        t_vbs = target_exe.replace('"', '""')
+        l_vbs = lnk_path.replace('"', '""')
+        w_vbs = work_dir.replace('"', '""')
+        i_vbs = icon_path.replace('"', '""')
+        vbs_code = (
+            'Set ws = CreateObject("WScript.Shell")\r\n'
+            f'Set s = ws.CreateShortcut("{l_vbs}")\r\n'
+            f's.TargetPath = "{t_vbs}"\r\n'
+            f's.WorkingDirectory = "{w_vbs}"\r\n'
+            f's.IconLocation = "{i_vbs},0"\r\n'
+            's.Save\r\n'
+        )
+        with open(vbs_path, "w", encoding="ansi") as f:
+            f.write(vbs_code)
+        r = subprocess.run(["cscript", "//nologo", vbs_path], capture_output=True, timeout=2.0, creationflags=flags)
+        created = (r.returncode == 0)
+        try:
+            os.remove(vbs_path)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    if not created:
+        try:
+            lnk_esc = lnk_path.replace("'", "''")
+            target_esc = target_exe.replace("'", "''")
+            work_esc = work_dir.replace("'", "''")
+            icon_esc = icon_path.replace("'", "''")
+            script = (
+                f"$ws = New-Object -ComObject WScript.Shell; "
+                f"$s = $ws.CreateShortcut('{lnk_esc}'); "
+                f"$s.TargetPath = '{target_esc}'; "
+                f"$s.WorkingDirectory = '{work_esc}'; "
+                f"$s.IconLocation = '{icon_esc},0'; "
+                f"$s.Save()"
+            )
+            subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=3.0,
+                creationflags=flags
+            )
+        except Exception:
+            pass
 
 class InstallWorker(QThread):
     progress_changed = pyqtSignal(int, str)
@@ -131,11 +163,15 @@ class InstallWorker(QThread):
         flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
         try:
             self.progress_changed.emit(10, "Fechando instâncias ativas do aplicativo...")
-            subprocess.run(
-                ["taskkill", "/f", "/im", "PCTrayHub.exe"],
-                capture_output=True,
-                creationflags=flags
-            )
+            try:
+                subprocess.run(
+                    ["taskkill", "/f", "/im", "PCTrayHub.exe"],
+                    capture_output=True,
+                    timeout=2.0,
+                    creationflags=flags
+                )
+            except Exception:
+                pass
             time.sleep(0.4)
 
             self.progress_changed.emit(25, "Criando diretório de instalação...")
@@ -195,16 +231,19 @@ class InstallWorker(QThread):
                     "/rl", "highest",
                     "/f"
                 ]
-                res_task = subprocess.run(cmd, capture_output=True, creationflags=flags)
-                if res_task.returncode != 0:
-                    cmd_fallback = [
-                        "schtasks", "/create",
-                        "/tn", "PCPerformanceTrayHub",
-                        "/tr", f'"{dest_exe}"',
-                        "/sc", "onlogon",
-                        "/f"
-                    ]
-                    subprocess.run(cmd_fallback, capture_output=True, creationflags=flags)
+                try:
+                    res_task = subprocess.run(cmd, capture_output=True, timeout=3.0, creationflags=flags)
+                    if res_task.returncode != 0:
+                        cmd_fallback = [
+                            "schtasks", "/create",
+                            "/tn", "PCPerformanceTrayHub",
+                            "/tr", f'"{dest_exe}"',
+                            "/sc", "onlogon",
+                            "/f"
+                        ]
+                        subprocess.run(cmd_fallback, capture_output=True, timeout=3.0, creationflags=flags)
+                except Exception:
+                    pass
 
             self.progress_changed.emit(90, "Registrando desinstalador no Painel de Controle...")
             uninstaller_bat = os.path.join(self.target_dir, "uninstall.bat")
@@ -236,9 +275,12 @@ class InstallWorker(QThread):
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
             started = False
             if self.autostart:
-                res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, creationflags=flags)
-                if res.returncode == 0:
-                    started = True
+                try:
+                    res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, timeout=3.0, creationflags=flags)
+                    if res.returncode == 0:
+                        started = True
+                except Exception:
+                    pass
             if not started:
                 subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=flags)
 
@@ -255,6 +297,13 @@ class InstallerWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Window)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setStyleSheet(DARK_INSTALLER_STYLE)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QColor("#07090E"))
+        painter.setPen(QColor("#1E293B"))
+        painter.drawRoundedRect(0, 0, self.width() - 1, self.height() - 1, 12, 12)
 
         default_dir = os.path.join(
             os.environ.get("LOCALAPPDATA", "C:\\"),
@@ -379,6 +428,7 @@ class InstallerWindow(QWidget):
 
     def _start_install(self):
         self.btn_install.setEnabled(False)
+        self.btn_install.setText("Instalando...")
         self.btn_cancel.setEnabled(False)
         self.progress_bar.setVisible(True)
 
@@ -398,17 +448,23 @@ class InstallerWindow(QWidget):
 
     def _on_finished(self, success: bool, msg: str):
         if success:
-            self.lbl_status.setText("Instalado com sucesso! O aplicativo já está ativo na bandeja.")
+            self.progress_bar.setValue(100)
+            self.lbl_status.setText("Instalação concluída com sucesso! Fechando instalador...")
             self.lbl_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981;")
             self.btn_install.setVisible(False)
             self.btn_cancel.setText("Concluir")
             self.btn_cancel.setEnabled(True)
-            self.btn_cancel.clicked.disconnect()
+            try:
+                self.btn_cancel.clicked.disconnect()
+            except Exception:
+                pass
             self.btn_cancel.clicked.connect(self.close)
+            QTimer.singleShot(1200, self.close)
         else:
             self.lbl_status.setText(f"Falha na instalação: {msg}")
             self.lbl_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #F43F5E;")
             self.btn_install.setEnabled(True)
+            self.btn_install.setText("INSTALAR AGORA")
             self.btn_cancel.setEnabled(True)
 
     def mousePressEvent(self, event):
