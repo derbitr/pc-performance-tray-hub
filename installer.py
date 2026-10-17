@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import shutil
 import subprocess
 import winreg
@@ -129,6 +130,7 @@ class InstallWorker(QThread):
                 capture_output=True,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
+            time.sleep(0.4)
 
             self.progress_changed.emit(25, "Criando diretório de instalação...")
             os.makedirs(self.target_dir, exist_ok=True)
@@ -144,10 +146,20 @@ class InstallWorker(QThread):
             dest_icon = os.path.join(self.target_dir, "app_icon.ico")
 
             self.progress_changed.emit(45, "Copiando executável standalone...")
-            if os.path.exists(source_exe):
-                shutil.copy2(source_exe, dest_exe)
-            else:
+            if not os.path.exists(source_exe):
                 raise FileNotFoundError("Arquivo PCTrayHub.exe não encontrado no pacote de instalação.")
+
+            copied = False
+            for _ in range(5):
+                try:
+                    shutil.copy2(source_exe, dest_exe)
+                    copied = True
+                    break
+                except PermissionError:
+                    time.sleep(0.5)
+
+            if not copied:
+                shutil.copy2(source_exe, dest_exe)
 
             if os.path.exists(source_icon):
                 shutil.copy2(source_icon, dest_icon)
@@ -207,7 +219,13 @@ class InstallWorker(QThread):
                 pass
 
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
-            subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=subprocess.CREATE_NO_WINDOW)
+            started = False
+            if self.autostart:
+                res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if res.returncode == 0:
+                    started = True
+            if not started:
+                subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=subprocess.CREATE_NO_WINDOW)
 
             self.progress_changed.emit(100, "Instalação concluída com sucesso!")
             self.install_finished.emit(True, dest_exe)

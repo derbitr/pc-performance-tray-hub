@@ -12,6 +12,7 @@ class AutoStartManager:
                 ["schtasks", "/query", "/tn", TASK_NAME],
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             return res.returncode == 0
@@ -45,6 +46,7 @@ class AutoStartManager:
                 cmd,
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             return res.returncode == 0
@@ -58,6 +60,7 @@ class AutoStartManager:
                 ["schtasks", "/delete", "/tn", TASK_NAME, "/f"],
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             return res.returncode == 0

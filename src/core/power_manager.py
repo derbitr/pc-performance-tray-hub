@@ -33,6 +33,7 @@ class PowerManager:
                 ["powercfg", "/list"],
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             for line in res.stdout.splitlines():
@@ -61,6 +62,7 @@ class PowerManager:
                 ["powercfg", "/getactivescheme"],
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             out = res.stdout.lower()
@@ -82,6 +84,7 @@ class PowerManager:
                 ["powercfg", "/setactive", guid],
                 check=True,
                 capture_output=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             return True

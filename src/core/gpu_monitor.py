@@ -22,21 +22,30 @@ class GPUMonitor:
                                     name, _ = winreg.QueryValueEx(sub_key, "DriverDesc")
                                 except Exception:
                                     name, _ = winreg.QueryValueEx(sub_key, "Device Description")
-                                name = name.strip()
+                                if isinstance(name, bytes):
+                                    name = name.decode("utf-8", errors="ignore")
+                                name = str(name).strip()
 
                                 driver_ver = "Padrão"
                                 try:
                                     driver_ver, _ = winreg.QueryValueEx(sub_key, "DriverVersion")
+                                    if isinstance(driver_ver, bytes):
+                                        driver_ver = driver_ver.decode("utf-8", errors="ignore")
+                                    driver_ver = str(driver_ver).strip()
                                 except Exception:
                                     pass
 
                                 vram_mb = 1024
                                 try:
                                     mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.qwMemorySize")
+                                    if isinstance(mem, bytes):
+                                        mem = int.from_bytes(mem, byteorder="little")
                                     vram_mb = max(128, round(mem / (1024 ** 2)))
                                 except Exception:
                                     try:
                                         mem, _ = winreg.QueryValueEx(sub_key, "HardwareInformation.MemorySize")
+                                        if isinstance(mem, bytes):
+                                            mem = int.from_bytes(mem, byteorder="little")
                                         vram_mb = max(128, round(mem / (1024 ** 2)))
                                     except Exception:
                                         pass

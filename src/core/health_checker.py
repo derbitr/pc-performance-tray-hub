@@ -12,6 +12,7 @@ class HealthChecker:
                 ["powershell", "-NoProfile", "-Command", cmd],
                 capture_output=True,
                 text=True,
+                timeout=4.0,
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             if res.returncode == 0 and res.stdout.strip():

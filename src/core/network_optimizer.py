@@ -26,6 +26,7 @@ class NetworkOptimizer:
                     ["ipconfig", "/flushdns"],
                     capture_output=True,
                     text=True,
+                    timeout=4.0,
                     creationflags=subprocess.CREATE_NO_WINDOW
                 )
                 if res.returncode == 0:

@@ -10,7 +10,7 @@ else:
 
 from src.ui.tray_app import PerformanceTrayApp
 
-MUTEX_NAME = "Global\\PCPerformanceTrayHub_SingleInstance_Mutex"
+MUTEX_NAME = "Local\\PCPerformanceTrayHub_SingleInstance_Mutex"
 _mutex_handle = None
 
 def ensure_single_instance() -> bool:
@@ -24,7 +24,8 @@ def ensure_single_instance() -> bool:
     _mutex_handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
     last_error = kernel32.GetLastError()
     ERROR_ALREADY_EXISTS = 183
-    if last_error == ERROR_ALREADY_EXISTS:
+    ERROR_ACCESS_DENIED = 5
+    if not _mutex_handle or last_error in (ERROR_ALREADY_EXISTS, ERROR_ACCESS_DENIED):
         if _mutex_handle:
             kernel32.CloseHandle(_mutex_handle)
             _mutex_handle = None

@@ -66,8 +66,10 @@ class GameFocusManager:
         try:
             h_proc = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, pid)
             if h_proc:
-                self.kernel32.SetPriorityClass(h_proc, HIGH_PRIORITY_CLASS)
-                self.kernel32.CloseHandle(h_proc)
+                try:
+                    self.kernel32.SetPriorityClass(h_proc, HIGH_PRIORITY_CLASS)
+                finally:
+                    self.kernel32.CloseHandle(h_proc)
                 self._last_boosted_pid = pid
                 self._last_boosted_name = name
                 return True
@@ -89,8 +91,10 @@ class GameFocusManager:
                 try:
                     h_prev = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, self._last_boosted_pid)
                     if h_prev:
-                        self.kernel32.SetPriorityClass(h_prev, NORMAL_PRIORITY_CLASS)
-                        self.kernel32.CloseHandle(h_prev)
+                        try:
+                            self.kernel32.SetPriorityClass(h_prev, NORMAL_PRIORITY_CLASS)
+                        finally:
+                            self.kernel32.CloseHandle(h_prev)
                 except Exception:
                     pass
 
@@ -112,8 +116,10 @@ class GameFocusManager:
                 try:
                     h_proc = self.kernel32.OpenProcess(PROCESS_SET_INFORMATION, False, self._last_boosted_pid)
                     if h_proc:
-                        self.kernel32.SetPriorityClass(h_proc, NORMAL_PRIORITY_CLASS)
-                        self.kernel32.CloseHandle(h_proc)
+                        try:
+                            self.kernel32.SetPriorityClass(h_proc, NORMAL_PRIORITY_CLASS)
+                        finally:
+                            self.kernel32.CloseHandle(h_proc)
                 except Exception:
                     pass
             self._last_boosted_pid = None
