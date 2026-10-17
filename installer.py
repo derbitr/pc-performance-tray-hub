@@ -265,7 +265,7 @@ class InstallWorker(QThread):
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key) as k:
                     winreg.SetValueEx(k, "DisplayName", 0, winreg.REG_SZ, "PC Performance Tray Hub")
                     winreg.SetValueEx(k, "DisplayIcon", 0, winreg.REG_SZ, dest_exe)
-                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, "1.0.1")
+                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, "1.0.2")
                     winreg.SetValueEx(k, "Publisher", 0, winreg.REG_SZ, "Performance Hub")
                     winreg.SetValueEx(k, "InstallLocation", 0, winreg.REG_SZ, self.target_dir)
                     winreg.SetValueEx(k, "UninstallString", 0, winreg.REG_SZ, f'"{uninstaller_bat}"')
