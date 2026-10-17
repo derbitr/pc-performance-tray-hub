@@ -219,9 +219,13 @@ class PerformanceTrayApp:
         )
 
     def _handle_ipc_connection(self):
-        client = self.ipc_server.nextPendingConnection()
-        if client:
-            client.readyRead.connect(lambda: self._on_ipc_message(client))
+        while self.ipc_server.hasPendingConnections():
+            client = self.ipc_server.nextPendingConnection()
+            if client:
+                if client.bytesAvailable() > 0:
+                    self._on_ipc_message(client)
+                else:
+                    client.readyRead.connect(lambda cl=client: self._on_ipc_message(cl))
 
     def _on_ipc_message(self, client):
         try:
