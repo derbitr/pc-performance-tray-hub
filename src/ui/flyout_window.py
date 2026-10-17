@@ -1512,22 +1512,35 @@ class FlyoutWindow(QWidget):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-                    self.is_pinned = cfg.get("pinned", False)
-                    self.opacity = cfg.get("opacity", 100)
-                    self.wing_expanded = cfg.get("wing_expanded", False)
-                    self.graph_location = cfg.get("graph_location", "hub")
-                    self.fan_location = cfg.get("fan_location", "hub")
-                    self.show_cpu_graph = cfg.get("show_cpu_graph", True)
-                    self.show_ram_graph = cfg.get("show_ram_graph", False)
-                    self.show_gpu_graph = cfg.get("show_gpu_graph", False)
-                    fan_mode = cfg.get("fan_mode", "auto")
-                    fan_speed = cfg.get("fan_speed", 50)
+                    self.is_pinned = bool(cfg.get("pinned", False))
+                    op = cfg.get("opacity", 100)
+                    try:
+                        self.opacity = max(60, min(100, int(op)))
+                    except Exception:
+                        self.opacity = 100
+                    self.wing_expanded = bool(cfg.get("wing_expanded", False))
+                    g_loc = str(cfg.get("graph_location", "hub")).lower()
+                    self.graph_location = g_loc if g_loc in ("hub", "wing") else "hub"
+                    f_loc = str(cfg.get("fan_location", "hub")).lower()
+                    self.fan_location = f_loc if f_loc in ("hub", "wing") else "hub"
+                    self.show_cpu_graph = bool(cfg.get("show_cpu_graph", True))
+                    self.show_ram_graph = bool(cfg.get("show_ram_graph", False))
+                    self.show_gpu_graph = bool(cfg.get("show_gpu_graph", False))
+                    f_mode = str(cfg.get("fan_mode", "auto")).lower()
+                    fan_mode = f_mode if f_mode in ("auto", "silent", "gaming", "max", "manual") else "auto"
+                    try:
+                        fan_speed = max(30, min(100, int(cfg.get("fan_speed", 50))))
+                    except Exception:
+                        fan_speed = 50
                     if hasattr(self, 'gpu_monitor'):
                         self.gpu_monitor.set_fan_mode(fan_mode)
                         if fan_mode == "manual":
                             self.gpu_monitor.set_fan_speed(fan_speed)
                     if "x" in cfg and "y" in cfg:
-                        self.custom_pos = QPoint(cfg["x"], cfg["y"])
+                        try:
+                            self.custom_pos = QPoint(int(cfg["x"]), int(cfg["y"]))
+                        except Exception:
+                            self.custom_pos = None
             except Exception:
                 pass
 
