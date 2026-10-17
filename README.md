@@ -4,14 +4,27 @@ Otimizador de desktop ultraleve (consumo inferior a 20 MB de RAM e 0.0% de CPU e
 
 ---
 
+## Download Rapido
+
+* **Instalador Automático (Recomendado):** **[Baixar PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)**
+* **Executável Portátil Standalone:** **[Baixar PCTrayHub.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub.exe)**
+* **Todas as Versões:** **[Página de Releases no GitHub](https://github.com/derbitr/pc-performance-tray-hub/releases/latest)**
+
+---
+
 ## Metodos de Instalacao
 
 ### Metodo 1: Instalador Automatico (Para Terceiros e Usuarios Finais)
 
 Este metodo nao requer instalacao de Python, abertura de terminal ou comandos manuais.
 
-1. Baixe o executavel `PCTrayHub_Setup.exe` disponibilizado na aba de Releases do repositorio ou na pasta `dist/`.
-2. Execute o arquivo `PCTrayHub_Setup.exe` com um clique duplo.
+* **Download Direto do Instalador:**
+  * **[Clique aqui para baixar o PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)** (Download Direto - 1 Clique)
+  * Ou acesse a **[Pagina de Releases Oficiais no GitHub](https://github.com/derbitr/pc-performance-tray-hub/releases/latest)** para conferir todas as notas de versao.
+
+#### Passo a Passo:
+1. Baixe o instalador pelo link direto: **[PCTrayHub_Setup.exe](https://github.com/derbitr/pc-performance-tray-hub/releases/latest/download/PCTrayHub_Setup.exe)**.
+2. Execute o arquivo `PCTrayHub_Setup.exe` baixado com um clique duplo.
 3. Na janela do instalador com interface Dark:
    - Selecione ou mantenha o diretorio de instalacao padrao (`%LOCALAPPDATA%\Programs\PCPerformanceTrayHub`).
    - Mantenha marcadas as opcoes de criar atalhos na Area de Trabalho, Menu Iniciar e inicializacao automatica com o Windows (sem prompt de UAC).
