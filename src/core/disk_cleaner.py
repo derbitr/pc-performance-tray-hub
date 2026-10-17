@@ -23,12 +23,19 @@ class DiskCleaner:
         freed_bytes = 0
         deleted_count = 0
         now = time.time()
+        start_time = now
         threshold_seconds = 20 * 60
 
         for d in self.temp_dirs:
+            if time.time() - start_time > 1.5:
+                break
             try:
                 for root, dirs, files in os.walk(d, topdown=False):
+                    if time.time() - start_time > 1.5:
+                        break
                     for name in files:
+                        if time.time() - start_time > 1.5:
+                            break
                         filepath = os.path.join(root, name)
                         try:
                             stat = os.stat(filepath)
@@ -52,6 +59,8 @@ class DiskCleaner:
                             pass
 
                     for name in dirs:
+                        if time.time() - start_time > 1.5:
+                            break
                         dirpath = os.path.join(root, name)
                         try:
                             os.rmdir(dirpath)

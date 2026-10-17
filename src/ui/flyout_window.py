@@ -116,6 +116,7 @@ class FlyoutWindow(QWidget):
             Qt.WindowType.WindowStaysOnTopHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(DARK_STYLESHEET)
 
         self.power_mgr = PowerManager()
@@ -138,6 +139,7 @@ class FlyoutWindow(QWidget):
         self.opacity = 100
         self.wing_expanded = False
         self.graph_location = "hub"
+        self.fan_location = "hub"
         self.show_cpu_graph = True
         self.show_ram_graph = False
         self.show_gpu_graph = False
@@ -146,6 +148,7 @@ class FlyoutWindow(QWidget):
 
         self._build_ui()
 
+        self._apply_fan_location(self.fan_location)
         self._apply_graph_location(self.graph_location)
         self._apply_wing_state(reposition=False)
         self._update_graph_visibility()
@@ -175,18 +178,23 @@ class FlyoutWindow(QWidget):
         self.main_pane_layout.setContentsMargins(0, 0, 0, 0)
         self.main_pane_layout.setSpacing(6)
 
-        header = QHBoxLayout()
+        header_card = QFrame()
+        header_card.setProperty("class", "GadgetCard")
+        header = QHBoxLayout(header_card)
+        header.setContentsMargins(8, 7, 8, 7)
+        header.setSpacing(6)
+
         icon_lbl = QLabel()
         icon_lbl.setPixmap(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 18))
         header.addWidget(icon_lbl)
 
         title_box = QVBoxLayout()
-        title_box.setSpacing(1)
+        title_box.setSpacing(2)
         title_lbl = QLabel("PERFORMANCE TRAY HUB")
-        title_lbl.setStyleSheet("font-size: 12px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.04em;")
+        title_lbl.setStyleSheet("font-size: 11px; font-weight: 800; color: #F8FAFC; letter-spacing: 0.04em;")
         hw_info = HardwareMonitor.get_hardware_info()
-        sub_lbl = QLabel(hw_info["full_spec"])
-        sub_lbl.setStyleSheet("font-size: 10px; color: #64748B; font-family: 'Consolas', monospace;")
+        sub_lbl = QLabel(f" {hw_info['cpu']} • {hw_info['ram']} ")
+        sub_lbl.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8; background: #101B2E; border: 1px solid #1E3A8A; border-radius: 4px; padding: 1px 4px; font-family: 'Consolas', monospace;")
         title_box.addWidget(title_lbl)
         title_box.addWidget(sub_lbl)
         header.addLayout(title_box)
@@ -214,7 +222,7 @@ class FlyoutWindow(QWidget):
         idle_badge = QLabel("IDLE")
         idle_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #38BDF8; background: #0C121D; border: 1px solid #1E293B; padding: 2px 7px; border-radius: 10px;")
         header.addWidget(idle_badge)
-        self.main_pane_layout.addLayout(header)
+        self.main_pane_layout.addWidget(header_card)
 
         self.main_pane_layout.addWidget(self._build_power_gadget())
 
@@ -225,7 +233,10 @@ class FlyoutWindow(QWidget):
         self.hub_graph_slot.setSpacing(4)
         self.main_pane_layout.addLayout(self.hub_graph_slot)
 
-        self.main_pane_layout.addWidget(self._build_fan_gadget())
+        self.hub_fan_slot = QVBoxLayout()
+        self.hub_fan_slot.setContentsMargins(0, 0, 0, 0)
+        self.hub_fan_slot.setSpacing(4)
+        self.main_pane_layout.addLayout(self.hub_fan_slot)
 
         self.main_pane_layout.addLayout(self._build_quick_actions())
 
@@ -295,6 +306,12 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addLayout(wing_header)
 
         self.side_wing_layout.addWidget(self._build_gpu_card())
+
+        self.wing_fan_slot = QVBoxLayout()
+        self.wing_fan_slot.setContentsMargins(0, 0, 0, 0)
+        self.wing_fan_slot.setSpacing(4)
+        self.side_wing_layout.addLayout(self.wing_fan_slot)
+
         self.side_wing_layout.addWidget(self._build_game_sync_card())
         self.side_wing_layout.addWidget(self._build_top_processes_card())
         self.side_wing_layout.addWidget(self._build_update_card())
@@ -307,6 +324,7 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.addStretch()
         root_layout.addWidget(self.side_wing)
 
+        self.fan_card = self._build_fan_gadget()
         self._build_graph_dashboard()
 
     def _build_graph_dashboard(self):
@@ -364,8 +382,8 @@ class FlyoutWindow(QWidget):
             color_1="#38BDF8",
             title_2="TEMP °C",
             color_2="#10B981",
-            min_2=30.0,
-            max_2=95.0,
+            min_2=25.0,
+            max_2=85.0,
             height=50
         )
         lay.addWidget(self.sparkline_cpu)
@@ -435,6 +453,43 @@ class FlyoutWindow(QWidget):
                 y = geo.bottom() - self.height() - 12
                 self.move(self.x(), y)
 
+    def _set_fan_location(self, loc: str):
+        if loc not in ("hub", "wing"):
+            return
+        self.fan_location = loc
+        self._apply_fan_location(loc)
+        self._save_config()
+
+    def _apply_fan_location(self, loc: str):
+        if not hasattr(self, 'fan_card') or not hasattr(self, 'hub_fan_slot') or not hasattr(self, 'wing_fan_slot'):
+            return
+        if loc == "hub":
+            self.wing_fan_slot.removeWidget(self.fan_card)
+            self.hub_fan_slot.addWidget(self.fan_card)
+            self.fan_card.setParent(self.main_pane)
+            self.fan_card.show()
+            if hasattr(self, 'btn_fan_loc_hub') and hasattr(self, 'btn_fan_loc_wing'):
+                self.btn_fan_loc_hub.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 8px; padding: 2px 6px;")
+                self.btn_fan_loc_wing.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 8px; padding: 2px 6px;")
+        else:
+            self.hub_fan_slot.removeWidget(self.fan_card)
+            self.wing_fan_slot.addWidget(self.fan_card)
+            self.fan_card.setParent(self.side_wing)
+            self.fan_card.show()
+            if hasattr(self, 'btn_fan_loc_hub') and hasattr(self, 'btn_fan_loc_wing'):
+                self.btn_fan_loc_wing.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 8px; padding: 2px 6px;")
+                self.btn_fan_loc_hub.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #64748B; font-weight: 600; font-size: 8px; padding: 2px 6px;")
+            if not getattr(self, "wing_expanded", False):
+                self._toggle_side_wing()
+
+        self.adjustSize()
+        if self.custom_pos is None and self.isVisible():
+            screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                y = geo.bottom() - self.height() - 12
+                self.move(self.x(), y)
+
     def _build_power_gadget(self) -> QWidget:
         card = QFrame()
         card.setProperty("class", "GadgetCard")
@@ -487,7 +542,7 @@ class FlyoutWindow(QWidget):
         c_top.addWidget(c_icon)
         c_lay.addLayout(c_top)
 
-        self.lbl_clock = QLabel("3.60 GHz")
+        self.lbl_clock = QLabel(f"{self.hw_monitor._base_mhz / 1000.0:.2f} GHz")
         self.lbl_clock.setStyleSheet("font-size: 16px; font-weight: 800; color: #F8FAFC; font-family: 'Consolas', monospace;")
         c_lay.addWidget(self.lbl_clock)
 
@@ -514,7 +569,7 @@ class FlyoutWindow(QWidget):
         t_top.addWidget(t_icon)
         t_lay.addLayout(t_top)
 
-        self.lbl_temp = QLabel("54°C")
+        self.lbl_temp = QLabel("--°C")
         self.lbl_temp.setStyleSheet("font-size: 16px; font-weight: 800; color: #F8FAFC; font-family: 'Consolas', monospace;")
         t_lay.addWidget(self.lbl_temp)
 
@@ -538,32 +593,70 @@ class FlyoutWindow(QWidget):
 
         hdr = QHBoxLayout()
         fan_icon = QLabel()
-        fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#38BDF8"), 14))
+        fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#F59E0B"), 14))
         hdr.addWidget(fan_icon)
-        lbl = QLabel("Cooler da CPU (Super I/O)")
+        gpu_name = self.gpu_monitor.primary_gpu.get("name", "GPU")
+        lbl = QLabel(f"Ventoinha da GPU ({gpu_name[:12]})")
         lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #94A3B8;")
         hdr.addWidget(lbl)
         hdr.addStretch()
 
-        self.lbl_fan_info = QLabel("100% • 2.500 RPM")
-        self.lbl_fan_info.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8; font-family: 'Consolas', monospace;")
-        hdr.addWidget(self.lbl_fan_info)
+        lbl_pos = QLabel("Local:")
+        lbl_pos.setStyleSheet("font-size: 9px; color: #475569;")
+        hdr.addWidget(lbl_pos)
+
+        self.btn_fan_loc_hub = QPushButton("Hub")
+        self.btn_fan_loc_hub.setToolTip("Fixa a ventoinha no painel principal")
+        self.btn_fan_loc_hub.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_loc_hub.clicked.connect(lambda: self._set_fan_location("hub"))
+        hdr.addWidget(self.btn_fan_loc_hub)
+
+        self.btn_fan_loc_wing = QPushButton("Lateral")
+        self.btn_fan_loc_wing.setToolTip("Move a ventoinha para o painel lateral de gadgets")
+        self.btn_fan_loc_wing.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_loc_wing.clicked.connect(lambda: self._set_fan_location("wing"))
+        hdr.addWidget(self.btn_fan_loc_wing)
         layout.addLayout(hdr)
+
+        info_row = QHBoxLayout()
+        self.lbl_fan_info = QLabel("Auto • 1.650 RPM")
+        self.lbl_fan_info.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
+        info_row.addWidget(self.lbl_fan_info)
+        info_row.addStretch()
+        layout.addLayout(info_row)
+
+        pills = QHBoxLayout()
+        pills.setSpacing(4)
+        self.btn_fan_auto = QPushButton("Auto")
+        self.btn_fan_auto.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_auto.clicked.connect(lambda: self._set_gpu_fan_preset("auto"))
+        pills.addWidget(self.btn_fan_auto)
+
+        self.btn_fan_silent = QPushButton("Silêncio")
+        self.btn_fan_silent.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_silent.clicked.connect(lambda: self._set_gpu_fan_preset("silent"))
+        pills.addWidget(self.btn_fan_silent)
+
+        self.btn_fan_gaming = QPushButton("Jogos (85%)")
+        self.btn_fan_gaming.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_gaming.clicked.connect(lambda: self._set_gpu_fan_preset("gaming"))
+        pills.addWidget(self.btn_fan_gaming)
+
+        self.btn_fan_max = QPushButton("MAX")
+        self.btn_fan_max.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_fan_max.clicked.connect(lambda: self._set_gpu_fan_preset("max"))
+        pills.addWidget(self.btn_fan_max)
+        layout.addLayout(pills)
 
         slider_box = QHBoxLayout()
         self.slider_fan = QSlider(Qt.Orientation.Horizontal)
         self.slider_fan.setRange(30, 100)
-        self.slider_fan.setValue(100)
+        self.slider_fan.setValue(getattr(self.gpu_monitor, "fan_speed", 50))
         self.slider_fan.valueChanged.connect(self._on_fan_slider_changed)
         slider_box.addWidget(self.slider_fan)
-
-        btn_max = QPushButton("MAX")
-        btn_max.setFixedWidth(40)
-        btn_max.setStyleSheet("font-size: 9px; font-weight: 800; color: #38BDF8; background: #0C1626; border: 1px solid #1E3A8A;")
-        btn_max.clicked.connect(lambda: self.slider_fan.setValue(100))
-        slider_box.addWidget(btn_max)
         layout.addLayout(slider_box)
 
+        self._update_gpu_fan_pills()
         return card
 
     def _build_quick_actions(self) -> QHBoxLayout:
@@ -662,19 +755,30 @@ class FlyoutWindow(QWidget):
         return card
 
     def _refresh_disk_health(self):
-        try:
-            score = self.health_checker.get_system_health_score()
-            disks = score.get("disks", [])
-            count = len(disks)
-            if score.get("all_healthy", True):
-                label_txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
-                self.lbl_health_score.setText(label_txt)
-                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;")
-            else:
-                self.lbl_health_score.setText("Atenção SMART")
-                self.lbl_health_score.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;")
-        except Exception:
-            pass
+        import threading
+        def worker():
+            try:
+                score = self.health_checker.get_system_health_score()
+                disks = score.get("disks", [])
+                count = len(disks)
+                all_ok = score.get("all_healthy", True)
+                if all_ok:
+                    txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
+                    style = "font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;"
+                else:
+                    txt = "Atenção SMART"
+                    style = "font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;"
+                QTimer.singleShot(0, lambda: self._apply_disk_health(txt, style))
+            except Exception:
+                pass
+
+        t = threading.Thread(target=worker, daemon=True)
+        t.start()
+
+    def _apply_disk_health(self, text: str, style: str):
+        if hasattr(self, 'lbl_health_score'):
+            self.lbl_health_score.setText(text)
+            self.lbl_health_score.setStyleSheet(style)
 
     def _build_gpu_card(self) -> QWidget:
         card = QFrame()
@@ -736,6 +840,16 @@ class FlyoutWindow(QWidget):
         self.bar_gpu_vram.setFixedHeight(3)
         self.bar_gpu_vram.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #F43F5E; }")
         lay.addWidget(self.bar_gpu_vram)
+
+        row3 = QHBoxLayout()
+        lbl_fan = QLabel("Ventoinha:")
+        lbl_fan.setStyleSheet("font-size: 10px; color: #94A3B8;")
+        self.lbl_card_gpu_fan = QLabel("Auto • 1.650 RPM")
+        self.lbl_card_gpu_fan.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: Consolas;")
+        row3.addWidget(lbl_fan)
+        row3.addStretch()
+        row3.addWidget(self.lbl_card_gpu_fan)
+        lay.addLayout(row3)
 
         if len(self.gpu_monitor.gpus) > 1:
             sec = self.gpu_monitor.gpus[1]
@@ -829,13 +943,6 @@ class FlyoutWindow(QWidget):
         if not hasattr(self, 'proc_rows_layout'):
             return
 
-        while self.proc_rows_layout.count() > 0:
-            item = self.proc_rows_layout.takeAt(0)
-            widget = item.widget()
-            if widget:
-                widget.setParent(None)
-                widget.deleteLater()
-
         procs = []
         for p in psutil.process_iter(['pid', 'name', 'memory_info']):
             try:
@@ -855,6 +962,22 @@ class FlyoutWindow(QWidget):
 
         procs.sort(key=lambda x: x[2], reverse=True)
         top = procs[:3]
+
+        cached = getattr(self, "_cached_proc_rows", [])
+        if len(top) == len(cached) and len(top) > 0 and all(top[i][1] == cached[i]["pid"] for i in range(len(top))):
+            for i, (name, pid, mem) in enumerate(top):
+                cached[i]["mem_lbl"].setText(f"{mem} MB")
+                cached[i]["name_lbl"].setText(name)
+            return
+
+        while self.proc_rows_layout.count() > 0:
+            item = self.proc_rows_layout.takeAt(0)
+            widget = item.widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        self._cached_proc_rows = []
 
         if not top:
             empty_lbl = QLabel("Nenhum processo pesado ativo.")
@@ -887,7 +1010,15 @@ class FlyoutWindow(QWidget):
             row_widget.setLayout(row)
             self.proc_rows_layout.addWidget(row_widget)
 
+            self._cached_proc_rows.append({
+                "pid": pid,
+                "name_lbl": p_lbl,
+                "mem_lbl": mem_lbl,
+                "widget": row_widget
+            })
+
     def _kill_process(self, pid: int):
+        self._cached_proc_rows = []
         try:
             p = psutil.Process(pid)
             p.terminate()
@@ -895,10 +1026,11 @@ class FlyoutWindow(QWidget):
         except Exception:
             try:
                 import subprocess
+                flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
                 subprocess.run(
                     ["taskkill", "/f", "/pid", str(pid)],
                     timeout=2.0,
-                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+                    creationflags=flags
                 )
                 QTimer.singleShot(300, self._update_top_processes)
             except Exception:
@@ -930,7 +1062,10 @@ class FlyoutWindow(QWidget):
 
             cb = QApplication.clipboard()
             if cb:
-                cb.setText(report)
+                try:
+                    cb.setText(report)
+                except Exception:
+                    pass
 
             if hasattr(self, 'btn_diag'):
                 self.btn_diag.setText("Copiado!")
@@ -1171,21 +1306,8 @@ class FlyoutWindow(QWidget):
             btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
 
     def _update_telemetry(self):
-        if not self.isVisible():
-            if hasattr(self, 'game_focus') and self.game_focus.is_active:
-                self.game_focus.check_and_boost_active()
-            return
-
         metrics = self.hw_monitor.get_metrics()
-        self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
-        self.bar_cpu.setValue(metrics['cpu_percent'])
-
-        self.lbl_temp.setText(f"{metrics['temp_c']}°C")
-        self.lbl_temp.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {metrics['temp_color']}; font-family: 'Consolas', monospace;")
-        self.bar_temp.setValue(metrics['temp_c'])
-        self.bar_temp.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {metrics['temp_color']}; }}")
-
-        self.lbl_fan_info.setText(f"{metrics['fan_speed_percent']}% • {metrics['fan_rpm']:,} RPM".replace(",", "."))
+        gpu_info = self.gpu_monitor.get_gpu_info()
 
         if hasattr(self, 'sparkline_cpu'):
             self.sparkline_cpu.add_point(metrics['cpu_percent'], metrics['temp_c'])
@@ -1196,9 +1318,39 @@ class FlyoutWindow(QWidget):
         if hasattr(self, 'sparkline_ram'):
             self.sparkline_ram.add_point(ram_used_pct, ram_free_gb)
 
-        gpu_info = self.gpu_monitor.get_gpu_info()
         if hasattr(self, 'sparkline_gpu'):
             self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'])
+
+        if not self.isVisible():
+            if hasattr(self, 'game_focus') and self.game_focus.is_active:
+                self.game_focus.check_and_boost_active()
+            return
+
+        self.lbl_clock.setText(f"{metrics['clock_ghz']:.2f} GHz")
+        self.bar_cpu.setValue(metrics['cpu_percent'])
+
+        self.lbl_temp.setText(f"{metrics['temp_c']}°C")
+        self.lbl_temp.setStyleSheet(f"font-size: 16px; font-weight: 800; color: {metrics['temp_color']}; font-family: 'Consolas', monospace;")
+        self.bar_temp.setValue(metrics['temp_c'])
+        self.bar_temp.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {metrics['temp_color']}; }}")
+
+        fan_speed = gpu_info["fan_speed_percent"]
+        fan_rpm = gpu_info["fan_rpm"]
+        fan_mode = gpu_info["fan_mode"]
+
+        if hasattr(self, 'lbl_fan_info'):
+            if fan_mode == "auto":
+                self.lbl_fan_info.setText(f"Auto ({fan_speed}%) • {fan_rpm:,} RPM".replace(",", "."))
+            else:
+                self.lbl_fan_info.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'lbl_card_gpu_fan'):
+            self.lbl_card_gpu_fan.setText(f"{fan_speed}% • {fan_rpm:,} RPM".replace(",", "."))
+
+        if hasattr(self, 'slider_fan') and fan_mode == "auto":
+            self.slider_fan.blockSignals(True)
+            self.slider_fan.setValue(fan_speed)
+            self.slider_fan.blockSignals(False)
 
         if hasattr(self, 'lbl_gpu_name'):
             self.lbl_gpu_name.setText(gpu_info['name'])
@@ -1251,15 +1403,41 @@ class FlyoutWindow(QWidget):
             self._update_power_pills()
             self.scheme_changed.emit(key)
 
+    def _set_gpu_fan_preset(self, mode: str):
+        self.gpu_monitor.set_fan_mode(mode)
+        self._update_gpu_fan_pills()
+        self._update_telemetry()
+        self._save_config()
+
+    def _update_gpu_fan_pills(self):
+        if not hasattr(self, 'btn_fan_auto'):
+            return
+        mode = self.gpu_monitor.fan_mode
+        presets = [
+            (self.btn_fan_auto, "auto"),
+            (self.btn_fan_silent, "silent"),
+            (self.btn_fan_gaming, "gaming"),
+            (self.btn_fan_max, "max")
+        ]
+        for btn, k in presets:
+            if mode == k:
+                btn.setStyleSheet("background-color: #78350F; border: 1px solid #F59E0B; color: #FFFFFF; font-weight: 700; font-size: 9px; padding: 3px 6px;")
+            else:
+                btn.setStyleSheet("background-color: #0E1626; border: 1px solid #1E293B; color: #94A3B8; font-weight: 600; font-size: 9px; padding: 3px 6px;")
+
     def _on_fan_slider_changed(self, val: int):
-        speed = self.hw_monitor.set_fan_speed(val)
-        rpm = int(1000 + ((speed - 30) / 70.0) * 1500)
-        self.lbl_fan_info.setText(f"{speed}% • {rpm:,} RPM".replace(",", "."))
+        self.gpu_monitor.set_fan_speed(val)
+        self._update_gpu_fan_pills()
+        self._update_telemetry()
+        self._save_config()
 
     def _on_clean_ram(self):
         res = self.mem_mgr.clean_ram()
         freed = res.get("freed_mb", 0)
-        self.btn_ram.setText(f" +{freed} MB!")
+        if freed > 0:
+            self.btn_ram.setText(f" +{freed} MB!")
+        else:
+            self.btn_ram.setText(" Otimizado!")
         QTimer.singleShot(2000, lambda: self.btn_ram.setText(" Limpar RAM"))
 
     def _on_toggle_suspend(self):
@@ -1296,7 +1474,10 @@ class FlyoutWindow(QWidget):
     def _on_clean_disk(self):
         res = self.disk_cleaner.clean_temp_files()
         freed = res.get("freed_mb", 0)
-        self.btn_disk.setText(f" -{freed} MB!")
+        if freed > 0:
+            self.btn_disk.setText(f" -{freed} MB!")
+        else:
+            self.btn_disk.setText(" Limpo!")
         QTimer.singleShot(2500, lambda: self.btn_disk.setText(" Limpar SSD"))
 
     def _on_flush_dns(self):
@@ -1331,15 +1512,35 @@ class FlyoutWindow(QWidget):
             try:
                 with open(self.config_path, "r", encoding="utf-8") as f:
                     cfg = json.load(f)
-                    self.is_pinned = cfg.get("pinned", False)
-                    self.opacity = cfg.get("opacity", 100)
-                    self.wing_expanded = cfg.get("wing_expanded", False)
-                    self.graph_location = cfg.get("graph_location", "hub")
-                    self.show_cpu_graph = cfg.get("show_cpu_graph", True)
-                    self.show_ram_graph = cfg.get("show_ram_graph", False)
-                    self.show_gpu_graph = cfg.get("show_gpu_graph", False)
+                    self.is_pinned = bool(cfg.get("pinned", False))
+                    op = cfg.get("opacity", 100)
+                    try:
+                        self.opacity = max(60, min(100, int(op)))
+                    except Exception:
+                        self.opacity = 100
+                    self.wing_expanded = bool(cfg.get("wing_expanded", False))
+                    g_loc = str(cfg.get("graph_location", "hub")).lower()
+                    self.graph_location = g_loc if g_loc in ("hub", "wing") else "hub"
+                    f_loc = str(cfg.get("fan_location", "hub")).lower()
+                    self.fan_location = f_loc if f_loc in ("hub", "wing") else "hub"
+                    self.show_cpu_graph = bool(cfg.get("show_cpu_graph", True))
+                    self.show_ram_graph = bool(cfg.get("show_ram_graph", False))
+                    self.show_gpu_graph = bool(cfg.get("show_gpu_graph", False))
+                    f_mode = str(cfg.get("fan_mode", "auto")).lower()
+                    fan_mode = f_mode if f_mode in ("auto", "silent", "gaming", "max", "manual") else "auto"
+                    try:
+                        fan_speed = max(30, min(100, int(cfg.get("fan_speed", 50))))
+                    except Exception:
+                        fan_speed = 50
+                    if hasattr(self, 'gpu_monitor'):
+                        self.gpu_monitor.set_fan_mode(fan_mode)
+                        if fan_mode == "manual":
+                            self.gpu_monitor.set_fan_speed(fan_speed)
                     if "x" in cfg and "y" in cfg:
-                        self.custom_pos = QPoint(cfg["x"], cfg["y"])
+                        try:
+                            self.custom_pos = QPoint(int(cfg["x"]), int(cfg["y"]))
+                        except Exception:
+                            self.custom_pos = None
             except Exception:
                 pass
 
@@ -1352,6 +1553,9 @@ class FlyoutWindow(QWidget):
                 "y": self.pos().y(),
                 "wing_expanded": self.wing_expanded,
                 "graph_location": self.graph_location,
+                "fan_location": getattr(self, "fan_location", "hub"),
+                "fan_mode": self.gpu_monitor.fan_mode if hasattr(self, 'gpu_monitor') else "auto",
+                "fan_speed": self.gpu_monitor.fan_speed if hasattr(self, 'gpu_monitor') else 50,
                 "show_cpu_graph": self.show_cpu_graph,
                 "show_ram_graph": self.show_ram_graph,
                 "show_gpu_graph": self.show_gpu_graph
@@ -1377,6 +1581,22 @@ class FlyoutWindow(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             if hasattr(self, "_drag_pos"):
                 del self._drag_pos
+            screen = None
+            for s in QApplication.screens():
+                if s.geometry().contains(self.pos()):
+                    screen = s
+                    break
+            if not screen:
+                screen = QApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                curr_w = self.width()
+                curr_h = self.height()
+                clamped_x = max(geo.left() + 8, min(self.x(), geo.right() - curr_w - 8))
+                clamped_y = max(geo.top() + 8, min(self.y(), geo.bottom() - curr_h - 8))
+                if clamped_x != self.x() or clamped_y != self.y():
+                    self.move(clamped_x, clamped_y)
+                self.custom_pos = self.pos()
             self._save_config()
             event.accept()
 
@@ -1397,8 +1617,8 @@ class FlyoutWindow(QWidget):
                 geo = screen.availableGeometry()
                 curr_w = self.width()
                 curr_h = self.height()
-                clamped_x = max(geo.left(), min(self.custom_pos.x(), geo.right() - curr_w))
-                clamped_y = max(geo.top(), min(self.custom_pos.y(), geo.bottom() - curr_h))
+                clamped_x = max(geo.left() + 8, min(self.custom_pos.x(), geo.right() - curr_w - 8))
+                clamped_y = max(geo.top() + 8, min(self.custom_pos.y(), geo.bottom() - curr_h - 8))
                 self.move(clamped_x, clamped_y)
                 return
         self.reset_to_tray_position()
@@ -1409,8 +1629,8 @@ class FlyoutWindow(QWidget):
             return
         geo = screen.availableGeometry()
         curr_width = 770 if getattr(self, "wing_expanded", False) else 385
-        x = geo.right() - curr_width - 12
-        y = geo.bottom() - self.height() - 12
+        x = max(geo.left() + 8, geo.right() - curr_width - 12)
+        y = max(geo.top() + 8, geo.bottom() - self.height() - 12)
         self.move(x, y)
         self.custom_pos = None
         self._save_config()

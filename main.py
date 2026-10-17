@@ -32,9 +32,23 @@ def ensure_single_instance() -> bool:
         return False
     return True
 
+def notify_running_instance():
+    try:
+        from PyQt6.QtCore import QCoreApplication
+        from PyQt6.QtNetwork import QLocalSocket
+        _app = QCoreApplication.instance() or QCoreApplication(sys.argv)
+        socket = QLocalSocket()
+        socket.connectToServer("PCPerformanceTrayHub_IpcServer")
+        if socket.waitForConnected(800):
+            socket.write(b"show\n")
+            socket.waitForBytesWritten(800)
+            socket.disconnectFromServer()
+    except Exception:
+        pass
+
 def main():
     if not ensure_single_instance():
-        print("PC Performance Tray Hub ja esta em execucao na bandeja do sistema.")
+        notify_running_instance()
         sys.exit(0)
 
     app = PerformanceTrayApp()

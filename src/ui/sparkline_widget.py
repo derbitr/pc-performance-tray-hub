@@ -72,7 +72,8 @@ class SparklineWidget(QWidget):
         painter.drawText(50, 12, self.title_2)
 
         painter.setPen(QColor("#475569"))
-        painter.drawText(w - 65, 12, "HISTORICO 30s")
+        th_w = painter.fontMetrics().horizontalAdvance("HISTORICO 30s")
+        painter.drawText(w - th_w - 8, 12, "HISTORICO 30s")
 
         plot_left = 8
         plot_right = w - 8
@@ -124,6 +125,18 @@ class SparklineWidget(QWidget):
             else:
                 path_2.lineTo(x, y)
 
+        fill_path_2 = QPainterPath(path_2)
+        fill_path_2.lineTo(plot_left + (n - 1) * step_x, plot_bottom)
+        fill_path_2.lineTo(plot_left, plot_bottom)
+        fill_path_2.closeSubpath()
+
+        grad_2 = QLinearGradient(0, plot_top, 0, plot_bottom)
+        c_fill_2 = QColor(self.color_2.red(), self.color_2.green(), self.color_2.blue(), 18)
+        grad_2.setColorAt(0, c_fill_2)
+        grad_2.setColorAt(1, QColor(0, 0, 0, 0))
+        painter.fillPath(fill_path_2, grad_2)
+
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(self.color_2, 1.5))
         painter.drawPath(path_2)
 
