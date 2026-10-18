@@ -210,6 +210,12 @@ class UpdateDownloadWorker(QThread):
                 os.replace(part_file, self.dest_path)
                 self.download_finished.emit(True, self.dest_path)
         except Exception as e:
+            try:
+                part_file = self.dest_path + ".download"
+                if os.path.exists(part_file):
+                    os.remove(part_file)
+            except Exception:
+                pass
             self.download_finished.emit(False, str(e))
 
 def apply_in_place_update(downloaded_file: str) -> bool:

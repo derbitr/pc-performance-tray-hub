@@ -180,7 +180,7 @@ class FlyoutWindow(QWidget):
         self.download_worker: Optional[UpdateDownloadWorker] = None
         self.last_update_info: Dict[str, Any] = {}
 
-        self._update_telemetry()
+        self._update_telemetry(force=True)
         self._update_power_pills()
         QTimer.singleShot(250, self._refresh_disk_health)
         QTimer.singleShot(2500, self._check_for_updates)
@@ -300,7 +300,12 @@ class FlyoutWindow(QWidget):
         self.side_wing_layout.setContentsMargins(0, 0, 0, 0)
         self.side_wing_layout.setSpacing(6)
 
-        wing_header = QHBoxLayout()
+        wing_header_card = QFrame()
+        wing_header_card.setProperty("class", "GadgetCard")
+        wing_header = QHBoxLayout(wing_header_card)
+        wing_header.setContentsMargins(8, 7, 8, 7)
+        wing_header.setSpacing(6)
+
         gpu_hdr_icon = QLabel()
         gpu_hdr_icon.setPixmap(create_svg_pixmap(get_svg(ICON_GPU, "#38BDF8"), 16))
         wing_header.addWidget(gpu_hdr_icon)
@@ -321,7 +326,7 @@ class FlyoutWindow(QWidget):
         self.btn_wing_collapse.setStyleSheet("font-size: 10px; padding: 4px 8px; color: #94A3B8; background: #0E1626; border: 1px solid #1E293B;")
         self.btn_wing_collapse.clicked.connect(self._toggle_side_wing)
         wing_header.addWidget(self.btn_wing_collapse)
-        self.side_wing_layout.addLayout(wing_header)
+        self.side_wing_layout.addWidget(wing_header_card)
 
         self.side_wing_layout.addWidget(self._build_gpu_card())
 
@@ -378,7 +383,7 @@ class FlyoutWindow(QWidget):
         pills = QHBoxLayout()
         pills.setSpacing(4)
 
-        self.btn_pill_cpu = QPushButton("CPU & Temp")
+        self.btn_pill_cpu = QPushButton("CPU && Temp")
         self.btn_pill_cpu.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_pill_cpu.clicked.connect(lambda: self._toggle_graph("cpu"))
         pills.addWidget(self.btn_pill_cpu)
@@ -618,7 +623,8 @@ class FlyoutWindow(QWidget):
         fan_icon.setPixmap(create_svg_pixmap(get_svg(ICON_FAN, "#F59E0B"), 14))
         hdr.addWidget(fan_icon)
         gpu_name = self.gpu_monitor.primary_gpu.get("name", "GPU")
-        lbl = QLabel(f"Ventoinha da GPU ({gpu_name[:12]})")
+        lbl = QLabel("Ventoinha da GPU")
+        lbl.setToolTip(f"Controle de rotação e perfis térmicos da {gpu_name}")
         lbl.setStyleSheet("font-size: 10px; font-weight: 600; color: #94A3B8;")
         hdr.addWidget(lbl)
         hdr.addStretch()
@@ -1423,7 +1429,7 @@ class FlyoutWindow(QWidget):
         else:
             btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
 
-    def _update_telemetry(self):
+    def _update_telemetry(self, force: bool = False):
         metrics = self.hw_monitor.get_metrics()
         gpu_info = self.gpu_monitor.get_gpu_info()
 
@@ -1439,7 +1445,7 @@ class FlyoutWindow(QWidget):
         if hasattr(self, 'sparkline_gpu'):
             self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'], gpu_info['fan_speed_percent'])
 
-        if not self.isVisible():
+        if not self.isVisible() and not force:
             if hasattr(self, 'game_focus') and self.game_focus.is_active:
                 self.game_focus.check_and_boost_active()
             return
@@ -1785,4 +1791,4 @@ class FlyoutWindow(QWidget):
             self.show()
             self.raise_()
             self.activateWindow()
-            self._update_telemetry()
+            self._update_telemetry(force=True)

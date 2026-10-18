@@ -38,7 +38,7 @@ class DiskCleaner:
                             break
                         filepath = os.path.join(root, name)
                         try:
-                            stat = os.stat(filepath)
+                            stat = os.lstat(filepath)
                             if now - stat.st_mtime < threshold_seconds:
                                 continue
 
