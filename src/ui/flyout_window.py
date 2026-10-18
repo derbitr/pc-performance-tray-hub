@@ -733,7 +733,7 @@ class FlyoutWindow(QWidget):
         self.btn_dns = QPushButton(" Flush DNS")
         self.btn_dns.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_NETWORK, "#38BDF8"), 13)))
         self.btn_dns.setStyleSheet("background: #0B0F19; border: 1px solid #1E293B; color: #94A3B8; padding: 6px;")
-        self.btn_dns.setToolTip("Renova cache de rotas DNS e reduz latência de rede")
+        self.btn_dns.setToolTip("Limpa o cache DNS do Windows e afere a latência de resposta sem desconectar a internet")
         self.btn_dns.clicked.connect(self._on_flush_dns)
         grid.addWidget(self.btn_dns, 1, 1)
 
@@ -1615,10 +1615,17 @@ class FlyoutWindow(QWidget):
         QTimer.singleShot(2500, lambda: self.btn_disk.setText(" Limpar SSD"))
 
     def _on_flush_dns(self):
+        self.btn_dns.setEnabled(False)
+        self.btn_dns.setText(" Limpando...")
+        QApplication.processEvents()
         res = self.net_opt.flush_dns()
         lat = res.get("latency_ms", 0)
-        self.btn_dns.setText(f" {lat}ms OK")
-        QTimer.singleShot(2000, lambda: self.btn_dns.setText(" Flush DNS"))
+        if lat > 0:
+            self.btn_dns.setText(f" DNS OK ({lat:.0f}ms)")
+        else:
+            self.btn_dns.setText(" DNS Limpo!")
+        self.btn_dns.setEnabled(True)
+        QTimer.singleShot(2500, lambda: self.btn_dns.setText(" Flush DNS"))
 
     def _on_opacity_slider_changed(self, val: int):
         self.opacity = val
