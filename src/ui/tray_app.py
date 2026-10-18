@@ -28,6 +28,7 @@ class PerformanceTrayApp:
         self.hw_monitor = HardwareMonitor()
 
         self.flyout = FlyoutWindow()
+        self.flyout.tray_app = self
 
         self.hw_info = HardwareMonitor.get_hardware_info()
 
@@ -57,9 +58,16 @@ class PerformanceTrayApp:
         self.tray.show()
 
         cpu_name = self.hw_info['cpu']
+        if "--updated" in sys.argv:
+            msg_title = "PC Performance Hub Atualizado"
+            msg_body = f"Aplicativo atualizado com sucesso! Monitorando {cpu_name}."
+        else:
+            msg_title = "PC Performance Hub Ativo"
+            msg_body = f"Monitorando {cpu_name}. Clique aqui para abrir o painel ou use Ctrl+Shift+F12."
+
         QTimer.singleShot(800, lambda: self.tray.showMessage(
-            "PC Performance Hub Ativo",
-            f"Monitorando {cpu_name}. Clique aqui para abrir o painel ou use Ctrl+Shift+F12.",
+            msg_title,
+            msg_body,
             QSystemTrayIcon.MessageIcon.Information,
             3500
         ))

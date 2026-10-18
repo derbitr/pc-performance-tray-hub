@@ -2,6 +2,7 @@ import sys
 import ctypes
 from ctypes import wintypes
 import os
+import time
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     sys.path.insert(0, sys._MEIPASS)
@@ -13,7 +14,7 @@ from src.ui.tray_app import PerformanceTrayApp
 MUTEX_NAME = "Local\\PCPerformanceTrayHub_SingleInstance_Mutex"
 _mutex_handle = None
 
-def ensure_single_instance() -> bool:
+def ensure_single_instance(timeout_ms: int = 3000) -> bool:
     global _mutex_handle
     kernel32 = ctypes.windll.kernel32
     kernel32.CreateMutexW.restype = wintypes.HANDLE
@@ -21,16 +22,34 @@ def ensure_single_instance() -> bool:
     kernel32.CloseHandle.restype = wintypes.BOOL
     kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
 
-    _mutex_handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
-    last_error = kernel32.GetLastError()
-    ERROR_ALREADY_EXISTS = 183
-    ERROR_ACCESS_DENIED = 5
-    if not _mutex_handle or last_error in (ERROR_ALREADY_EXISTS, ERROR_ACCESS_DENIED):
+    start_t = time.time()
+    while True:
+        _mutex_handle = kernel32.CreateMutexW(None, False, MUTEX_NAME)
+        last_error = kernel32.GetLastError()
+        ERROR_ALREADY_EXISTS = 183
+        ERROR_ACCESS_DENIED = 5
+        if _mutex_handle and last_error not in (ERROR_ALREADY_EXISTS, ERROR_ACCESS_DENIED):
+            return True
+
         if _mutex_handle:
             kernel32.CloseHandle(_mutex_handle)
             _mutex_handle = None
-        return False
-    return True
+
+        if "--updated" in sys.argv:
+            if (time.time() - start_t) * 1000.0 < timeout_ms:
+                time.sleep(0.12)
+                continue
+        break
+    return False
+
+def release_single_instance():
+    global _mutex_handle
+    if _mutex_handle:
+        try:
+            ctypes.windll.kernel32.CloseHandle(_mutex_handle)
+        except Exception:
+            pass
+        _mutex_handle = None
 
 def notify_running_instance():
     try:
@@ -69,7 +88,8 @@ def cleanup_old_binaries():
 def main():
     cleanup_old_binaries()
     if not ensure_single_instance():
-        notify_running_instance()
+        if "--updated" not in sys.argv:
+            notify_running_instance()
         sys.exit(0)
 
     app = PerformanceTrayApp()

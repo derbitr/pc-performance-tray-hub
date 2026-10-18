@@ -1260,12 +1260,29 @@ class FlyoutWindow(QWidget):
             self.lbl_update_status.setText("Atualização concluída! Reiniciando...")
             self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981;")
             self.lbl_update_detail.setText("O aplicativo iniciará a nova versão automaticamente.")
-            QTimer.singleShot(600, lambda: apply_in_place_update(path_or_err))
+            QTimer.singleShot(600, lambda: self._apply_update_and_restart(path_or_err))
         else:
             self.bar_update_progress.setVisible(False)
             self.lbl_update_status.setText("Falha no download da atualização.")
             self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #F43F5E;")
             self.lbl_update_detail.setText(f"Erro: {path_or_err[:40]}")
+
+    def _apply_update_and_restart(self, file_path: str):
+        if hasattr(self, 'tray_app') and self.tray_app:
+            try:
+                if hasattr(self.tray_app, 'ipc_server'):
+                    self.tray_app.ipc_server.close()
+                    self.tray_app.ipc_server.removeServer("PCPerformanceTrayHub_IpcServer")
+            except Exception:
+                pass
+        res = apply_in_place_update(file_path)
+        if not res:
+            self.bar_update_progress.setVisible(False)
+            self.lbl_update_status.setText("Falha ao aplicar atualização.")
+            self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #F43F5E;")
+            self.lbl_update_detail.setText("Execute a atualização manualmente através do GitHub.")
+            self.btn_direct_update.setText("Tentar Novamente")
+            self.btn_download_update.setVisible(True)
 
     def _on_download_update(self):
         url = self.last_update_info.get("release_url")

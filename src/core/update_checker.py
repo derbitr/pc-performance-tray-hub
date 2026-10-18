@@ -188,6 +188,20 @@ class UpdateDownloadWorker(QThread):
                         downloaded += len(chunk)
                         pct = int((downloaded / total_size) * 100) if total_size > 0 else 0
                         self.download_progress.emit(pct, downloaded, total_size)
+                if total_size > 0 and downloaded < total_size:
+                    try:
+                        os.remove(part_file)
+                    except Exception:
+                        pass
+                    self.download_finished.emit(False, f"Download incompleto ({downloaded} de {total_size} bytes).")
+                    return
+                if downloaded < 1024 * 1024 * 5:
+                    try:
+                        os.remove(part_file)
+                    except Exception:
+                        pass
+                    self.download_finished.emit(False, "Arquivo baixado possui tamanho invalido.")
+                    return
                 if os.path.exists(self.dest_path):
                     try:
                         os.remove(self.dest_path)
@@ -212,18 +226,44 @@ def apply_in_place_update(downloaded_file: str) -> bool:
                 shutil.move(current_exe, old_exe)
             except Exception:
                 return False
+        placed = False
         try:
             shutil.move(downloaded_file, current_exe)
+            placed = True
         except Exception:
             try:
                 shutil.copy2(downloaded_file, current_exe)
-                os.remove(downloaded_file)
+                try:
+                    os.remove(downloaded_file)
+                except Exception:
+                    pass
+                placed = True
             except Exception:
+                try:
+                    os.replace(old_exe, current_exe)
+                except Exception:
+                    pass
                 return False
+
+        if not placed:
+            try:
+                os.replace(old_exe, current_exe)
+            except Exception:
+                pass
+            return False
+
         try:
-            subprocess.Popen([current_exe], cwd=target_dir, creationflags=flags)
+            import main
+            if hasattr(main, "release_single_instance"):
+                main.release_single_instance()
         except Exception:
             pass
+
+        try:
+            subprocess.Popen([current_exe, "--updated"], cwd=target_dir, creationflags=flags)
+        except Exception:
+            pass
+
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance()
         if app:

@@ -298,16 +298,7 @@ class InstallWorker(QThread):
                 pass
 
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
-            started = False
-            if self.autostart:
-                try:
-                    res = subprocess.run(["schtasks", "/run", "/tn", "PCPerformanceTrayHub"], capture_output=True, timeout=3.0, creationflags=flags)
-                    if res.returncode == 0:
-                        started = True
-                except Exception:
-                    pass
-            if not started:
-                subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=flags)
+            subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=flags)
 
             self.progress_changed.emit(100, "Instalação concluída com sucesso!")
             self.install_finished.emit(True, dest_exe)
