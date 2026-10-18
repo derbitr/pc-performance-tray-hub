@@ -13,6 +13,8 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 from PyQt6.QtSvg import QSvgRenderer
 
+APP_VERSION = "1.0.8"
+
 DARK_INSTALLER_STYLE = """
 QWidget#InstallerRoot {
     background-color: #07090E;
@@ -290,7 +292,7 @@ class InstallWorker(QThread):
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key) as k:
                     winreg.SetValueEx(k, "DisplayName", 0, winreg.REG_SZ, "PC Performance Tray Hub")
                     winreg.SetValueEx(k, "DisplayIcon", 0, winreg.REG_SZ, dest_exe)
-                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, "1.0.7")
+                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, APP_VERSION)
                     winreg.SetValueEx(k, "Publisher", 0, winreg.REG_SZ, "Performance Hub")
                     winreg.SetValueEx(k, "InstallLocation", 0, winreg.REG_SZ, self.target_dir)
                     winreg.SetValueEx(k, "UninstallString", 0, winreg.REG_SZ, f'"{uninstaller_bat}"')
@@ -298,18 +300,48 @@ class InstallWorker(QThread):
                 pass
 
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
-            try:
-                os.startfile(dest_exe)
-            except Exception:
+            for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH", "PYI_PARENT_PID", "TCL_LIBRARY", "TK_LIBRARY"):
+                os.environ.pop(k, None)
+                try:
+                    ctypes.windll.kernel32.SetEnvironmentVariableW(k, None)
+                except Exception:
+                    pass
+
+            launched = False
+            if self.autostart:
+                try:
+                    r_task = subprocess.run(
+                        ["schtasks", "/run", "/tn", "PCPerformanceTrayHub"],
+                        capture_output=True,
+                        timeout=3.0,
+                        creationflags=flags
+                    )
+                    if r_task.returncode == 0:
+                        launched = True
+                except Exception:
+                    pass
+
+            if not launched:
                 clean_env = os.environ.copy()
-                for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH"):
+                for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH", "PYI_PARENT_PID", "TCL_LIBRARY", "TK_LIBRARY"):
                     clean_env.pop(k, None)
                 mei = getattr(sys, "_MEIPASS", None)
                 if mei:
                     clean_env["PATH"] = os.pathsep.join(
                         [p for p in clean_env.get("PATH", "").split(os.pathsep) if os.path.abspath(p) != os.path.abspath(mei)]
                     )
-                subprocess.Popen([dest_exe], cwd=self.target_dir, env=clean_env, creationflags=flags)
+                detached = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                new_grp = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+                launch_flags = flags | detached | new_grp
+                try:
+                    subprocess.Popen([dest_exe], cwd=self.target_dir, env=clean_env, creationflags=launch_flags)
+                    launched = True
+                except Exception:
+                    try:
+                        os.startfile(dest_exe)
+                        launched = True
+                    except Exception:
+                        pass
 
             self.progress_changed.emit(100, "Instalação concluída com sucesso!")
             self.install_finished.emit(True, dest_exe)

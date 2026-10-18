@@ -265,21 +265,48 @@ def apply_in_place_update(downloaded_file: str) -> bool:
         except Exception:
             pass
 
+        import ctypes
+        for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH", "PYI_PARENT_PID", "TCL_LIBRARY", "TK_LIBRARY"):
+            os.environ.pop(k, None)
+            try:
+                ctypes.windll.kernel32.SetEnvironmentVariableW(k, None)
+            except Exception:
+                pass
+
+        launched = False
         try:
-            os.startfile(current_exe, arguments="--updated")
+            r_task = subprocess.run(
+                ["schtasks", "/run", "/tn", "PCPerformanceTrayHub"],
+                capture_output=True,
+                timeout=3.0,
+                creationflags=flags
+            )
+            if r_task.returncode == 0:
+                launched = True
         except Exception:
+            pass
+
+        if not launched:
             clean_env = os.environ.copy()
-            for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH"):
+            for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH", "PYI_PARENT_PID", "TCL_LIBRARY", "TK_LIBRARY"):
                 clean_env.pop(k, None)
             mei = getattr(sys, "_MEIPASS", None)
             if mei:
                 clean_env["PATH"] = os.pathsep.join(
                     [p for p in clean_env.get("PATH", "").split(os.pathsep) if os.path.abspath(p) != os.path.abspath(mei)]
                 )
+            detached = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+            new_grp = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+            launch_flags = flags | detached | new_grp
             try:
-                subprocess.Popen([current_exe, "--updated"], cwd=target_dir, env=clean_env, creationflags=flags)
+                subprocess.Popen([current_exe, "--updated"], cwd=target_dir, env=clean_env, creationflags=launch_flags)
+                launched = True
             except Exception:
-                pass
+                try:
+                    os.startfile(current_exe, arguments="--updated")
+                    launched = True
+                except Exception:
+                    pass
 
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance()
