@@ -266,9 +266,20 @@ def apply_in_place_update(downloaded_file: str) -> bool:
             pass
 
         try:
-            subprocess.Popen([current_exe, "--updated"], cwd=target_dir, creationflags=flags)
+            os.startfile(current_exe, arguments="--updated")
         except Exception:
-            pass
+            clean_env = os.environ.copy()
+            for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH"):
+                clean_env.pop(k, None)
+            mei = getattr(sys, "_MEIPASS", None)
+            if mei:
+                clean_env["PATH"] = os.pathsep.join(
+                    [p for p in clean_env.get("PATH", "").split(os.pathsep) if os.path.abspath(p) != os.path.abspath(mei)]
+                )
+            try:
+                subprocess.Popen([current_exe, "--updated"], cwd=target_dir, env=clean_env, creationflags=flags)
+            except Exception:
+                pass
 
         from PyQt6.QtWidgets import QApplication
         app = QApplication.instance()

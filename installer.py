@@ -298,7 +298,18 @@ class InstallWorker(QThread):
                 pass
 
             self.progress_changed.emit(95, "Iniciando aplicativo na bandeja do sistema...")
-            subprocess.Popen([dest_exe], cwd=self.target_dir, creationflags=flags)
+            try:
+                os.startfile(dest_exe)
+            except Exception:
+                clean_env = os.environ.copy()
+                for k in ("_MEIPASS2", "_MEIPASS", "PYTHONHOME", "PYTHONPATH"):
+                    clean_env.pop(k, None)
+                mei = getattr(sys, "_MEIPASS", None)
+                if mei:
+                    clean_env["PATH"] = os.pathsep.join(
+                        [p for p in clean_env.get("PATH", "").split(os.pathsep) if os.path.abspath(p) != os.path.abspath(mei)]
+                    )
+                subprocess.Popen([dest_exe], cwd=self.target_dir, env=clean_env, creationflags=flags)
 
             self.progress_changed.emit(100, "Instalação concluída com sucesso!")
             self.install_finished.emit(True, dest_exe)
