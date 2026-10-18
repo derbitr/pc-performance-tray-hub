@@ -46,7 +46,28 @@ def notify_running_instance():
     except Exception:
         pass
 
+def cleanup_old_binaries():
+    try:
+        dirs_to_clean = []
+        if getattr(sys, 'frozen', False):
+            dirs_to_clean.append(os.path.dirname(os.path.abspath(sys.executable)))
+        else:
+            base = os.path.dirname(os.path.abspath(__file__))
+            dirs_to_clean.append(base)
+            dirs_to_clean.append(os.path.join(base, "dist"))
+        for d in dirs_to_clean:
+            if os.path.exists(d):
+                for f_name in os.listdir(d):
+                    if f_name.startswith("PCTrayHub.exe.old") or f_name.endswith(".download") or f_name.endswith(".part"):
+                        try:
+                            os.remove(os.path.join(d, f_name))
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+
 def main():
+    cleanup_old_binaries()
     if not ensure_single_instance():
         notify_running_instance()
         sys.exit(0)
@@ -56,4 +77,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 

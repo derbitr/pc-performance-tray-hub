@@ -25,7 +25,10 @@ from src.core.disk_cleaner import DiskCleaner
 from src.core.game_focus import GameFocusManager
 from src.core.gpu_monitor import GPUMonitor
 from src.core.fps_sync import FPSSyncManager
-from src.core.update_checker import CURRENT_VERSION, UpdateCheckWorker, open_releases_page
+from src.core.update_checker import (
+    CURRENT_VERSION, UpdateCheckWorker, UpdateDownloadWorker,
+    apply_in_place_update, open_releases_page
+)
 from src.ui.sparkline_widget import SparklineWidget
 from src.assets.icons import (
     get_svg, ICON_BOLT, ICON_CPU, ICON_THERMOMETER, ICON_FAN,
@@ -174,6 +177,7 @@ class FlyoutWindow(QWidget):
         self.telemetry_timer.start(1500)
 
         self.update_worker: Optional[UpdateCheckWorker] = None
+        self.download_worker: Optional[UpdateDownloadWorker] = None
         self.last_update_info: Dict[str, Any] = {}
 
         self._update_telemetry()
@@ -1130,13 +1134,34 @@ class FlyoutWindow(QWidget):
         self.lbl_update_detail.setStyleSheet("font-size: 9px; color: #64748B;")
         lay.addWidget(self.lbl_update_detail)
 
-        self.btn_download_update = QPushButton(" Baixar Nova Versão")
-        self.btn_download_update.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_DOWNLOAD, "#FFFFFF"), 12)))
+        self.bar_update_progress = QProgressBar()
+        self.bar_update_progress.setRange(0, 100)
+        self.bar_update_progress.setValue(0)
+        self.bar_update_progress.setFixedHeight(12)
+        self.bar_update_progress.setStyleSheet("QProgressBar { background: #0B0F19; border: 1px solid #161F30; border-radius: 3px; text-align: center; color: #94A3B8; font-size: 8px; font-weight: 700; } QProgressBar::chunk { background: #38BDF8; border-radius: 2px; }")
+        self.bar_update_progress.setVisible(False)
+        lay.addWidget(self.bar_update_progress)
+
+        update_actions = QHBoxLayout()
+        update_actions.setSpacing(6)
+
+        self.btn_direct_update = QPushButton(" Atualizar Agora")
+        self.btn_direct_update.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_BOLT, "#FFFFFF"), 12)))
+        self.btn_direct_update.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_direct_update.setStyleSheet("font-size: 10px; font-weight: 700; color: #FFFFFF; background-color: #1E3A8A; border: 1px solid #38BDF8; border-radius: 4px; padding: 5px;")
+        self.btn_direct_update.setVisible(False)
+        self.btn_direct_update.clicked.connect(self._on_start_direct_update)
+        update_actions.addWidget(self.btn_direct_update, stretch=2)
+
+        self.btn_download_update = QPushButton(" Notas")
+        self.btn_download_update.setIcon(QIcon(create_svg_pixmap(get_svg(ICON_DOWNLOAD, "#94A3B8"), 10)))
         self.btn_download_update.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_download_update.setStyleSheet("font-size: 10px; font-weight: 700; color: #FFFFFF; background-color: #1E3A8A; border: 1px solid #38BDF8; border-radius: 4px; padding: 5px;")
+        self.btn_download_update.setStyleSheet("font-size: 10px; font-weight: 600; color: #94A3B8; background-color: #0E1626; border: 1px solid #1E293B; border-radius: 4px; padding: 5px;")
         self.btn_download_update.setVisible(False)
         self.btn_download_update.clicked.connect(self._on_download_update)
-        lay.addWidget(self.btn_download_update)
+        update_actions.addWidget(self.btn_download_update, stretch=1)
+
+        lay.addLayout(update_actions)
 
         return card
 
@@ -1171,7 +1196,12 @@ class FlyoutWindow(QWidget):
             pub = result.get("published_at", "")
             detail_txt = f"Lançada em {pub} no GitHub" if pub else "Disponível no GitHub Releases"
             self.lbl_update_detail.setText(detail_txt)
+            self.btn_direct_update.setText(f" Atualizar para v{latest}")
+            self.btn_direct_update.setVisible(True)
+            self.btn_direct_update.setEnabled(True)
             self.btn_download_update.setVisible(True)
+            self.btn_download_update.setEnabled(True)
+            self.bar_update_progress.setVisible(False)
             self.lbl_ver_badge.setText(f"v{CURRENT_VERSION} -> v{latest}")
             self.lbl_ver_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #38BDF8; background: #0C1E36; border: 1px solid #38BDF8; border-radius: 3px; padding: 1px 5px; font-family: Consolas;")
             self.update_available.emit(result)
@@ -1180,9 +1210,62 @@ class FlyoutWindow(QWidget):
             color = "#10B981" if result.get("success") else "#94A3B8"
             self.lbl_update_status.setStyleSheet(f"font-size: 10px; font-weight: 600; color: {color};")
             self.lbl_update_detail.setText("O aplicativo está na versão estável mais recente.")
+            self.btn_direct_update.setVisible(False)
             self.btn_download_update.setVisible(False)
+            self.bar_update_progress.setVisible(False)
             self.lbl_ver_badge.setText(f"v{CURRENT_VERSION}")
             self.lbl_ver_badge.setStyleSheet("font-size: 9px; font-weight: 700; color: #94A3B8; background: #161F30; border: 1px solid #1E293B; border-radius: 3px; padding: 1px 5px; font-family: Consolas;")
+
+    def _on_start_direct_update(self):
+        if self.download_worker and self.download_worker.isRunning():
+            return
+        download_url = self.last_update_info.get("exe_download_url")
+        if not download_url:
+            self._on_download_update()
+            return
+
+        if getattr(sys, "frozen", False):
+            target_dir = os.path.dirname(os.path.abspath(sys.executable))
+        else:
+            target_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "dist")
+        os.makedirs(target_dir, exist_ok=True)
+        temp_dest = os.path.join(target_dir, "PCTrayHub_new.exe")
+
+        self.btn_direct_update.setEnabled(False)
+        self.btn_download_update.setEnabled(False)
+        self.bar_update_progress.setValue(0)
+        self.bar_update_progress.setVisible(True)
+        self.lbl_update_status.setText("Iniciando download...")
+        self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8;")
+
+        self.download_worker = UpdateDownloadWorker(download_url, temp_dest)
+        self.download_worker.download_progress.connect(self._on_download_progress)
+        self.download_worker.download_finished.connect(self._on_download_finished)
+        self.download_worker.start()
+
+    def _on_download_progress(self, pct: int, downloaded: int, total: int):
+        self.bar_update_progress.setValue(pct)
+        d_mb = downloaded / (1024 * 1024)
+        t_mb = total / (1024 * 1024) if total > 0 else 0.0
+        if t_mb > 0:
+            self.lbl_update_status.setText(f"Baixando: {d_mb:.1f} MB / {t_mb:.1f} MB ({pct}%)")
+        else:
+            self.lbl_update_status.setText(f"Baixando: {d_mb:.1f} MB...")
+
+    def _on_download_finished(self, success: bool, path_or_err: str):
+        self.btn_direct_update.setEnabled(True)
+        self.btn_download_update.setEnabled(True)
+        if success:
+            self.bar_update_progress.setValue(100)
+            self.lbl_update_status.setText("Atualização concluída! Reiniciando...")
+            self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981;")
+            self.lbl_update_detail.setText("O aplicativo iniciará a nova versão automaticamente.")
+            QTimer.singleShot(600, lambda: apply_in_place_update(path_or_err))
+        else:
+            self.bar_update_progress.setVisible(False)
+            self.lbl_update_status.setText("Falha no download da atualização.")
+            self.lbl_update_status.setStyleSheet("font-size: 10px; font-weight: 700; color: #F43F5E;")
+            self.lbl_update_detail.setText(f"Erro: {path_or_err[:40]}")
 
     def _on_download_update(self):
         url = self.last_update_info.get("release_url")

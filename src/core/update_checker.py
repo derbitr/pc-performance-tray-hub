@@ -1,10 +1,14 @@
+import os
+import sys
+import time
+import shutil
 import urllib.request
 import json
 import webbrowser
 from typing import Dict, Any, Tuple
 from PyQt6.QtCore import QThread, pyqtSignal
 
-CURRENT_VERSION = "1.0.4"
+CURRENT_VERSION = "1.0.5"
 REPO_OWNER = "derbitr"
 REPO_NAME = "pc-performance-tray-hub"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"
@@ -35,6 +39,9 @@ class UpdateCheckWorker(QThread):
             "latest_version": CURRENT_VERSION,
             "release_name": "",
             "release_url": RELEASES_PAGE_URL,
+            "exe_download_url": "",
+            "exe_size": 0,
+            "setup_download_url": "",
             "published_at": "",
             "message": "Nao foi possivel conectar ao servidor de atualizacoes."
         }
@@ -54,6 +61,18 @@ class UpdateCheckWorker(QThread):
                     cur_tuple = parse_version(CURRENT_VERSION)
                     latest_tuple = parse_version(latest_ver)
                     has_update = latest_tuple > cur_tuple
+
+                    exe_url = ""
+                    exe_size = 0
+                    setup_url = ""
+                    for asset in data.get("assets", []):
+                        a_name = asset.get("name", "").lower()
+                        if a_name == "pctrayhub.exe":
+                            exe_url = asset.get("browser_download_url", "")
+                            exe_size = asset.get("size", 0)
+                        elif "setup" in a_name and a_name.endswith(".exe"):
+                            setup_url = asset.get("browser_download_url", "")
+
                     result = {
                         "success": True,
                         "has_update": has_update,
@@ -61,6 +80,9 @@ class UpdateCheckWorker(QThread):
                         "latest_version": latest_ver if latest_ver else CURRENT_VERSION,
                         "release_name": data.get("name", f"Versao {latest_ver}"),
                         "release_url": data.get("html_url", RELEASES_PAGE_URL),
+                        "exe_download_url": exe_url,
+                        "exe_size": exe_size,
+                        "setup_download_url": setup_url,
                         "published_at": data.get("published_at", "")[:10],
                         "message": f"Nova versao v{latest_ver} disponivel!" if has_update else f"Aplicativo atualizado (v{CURRENT_VERSION})."
                     }
@@ -73,6 +95,9 @@ class UpdateCheckWorker(QThread):
                     "latest_version": CURRENT_VERSION,
                     "release_name": f"Versao {CURRENT_VERSION}",
                     "release_url": RELEASES_PAGE_URL,
+                    "exe_download_url": "",
+                    "exe_size": 0,
+                    "setup_download_url": "",
                     "published_at": "",
                     "message": f"Aplicativo atualizado (v{CURRENT_VERSION})."
                 }
@@ -84,6 +109,9 @@ class UpdateCheckWorker(QThread):
                     "latest_version": CURRENT_VERSION,
                     "release_name": "",
                     "release_url": RELEASES_PAGE_URL,
+                    "exe_download_url": "",
+                    "exe_size": 0,
+                    "setup_download_url": "",
                     "published_at": "",
                     "message": f"Versao v{CURRENT_VERSION} (Limite de API atingido)."
                 }
@@ -95,6 +123,9 @@ class UpdateCheckWorker(QThread):
                     "latest_version": CURRENT_VERSION,
                     "release_name": "",
                     "release_url": RELEASES_PAGE_URL,
+                    "exe_download_url": "",
+                    "exe_size": 0,
+                    "setup_download_url": "",
                     "published_at": "",
                     "message": f"Versao v{CURRENT_VERSION} em dia."
                 }
@@ -106,10 +137,110 @@ class UpdateCheckWorker(QThread):
                 "latest_version": CURRENT_VERSION,
                 "release_name": "",
                 "release_url": RELEASES_PAGE_URL,
+                "exe_download_url": "",
+                "exe_size": 0,
+                "setup_download_url": "",
                 "published_at": "",
                 "message": f"Versao v{CURRENT_VERSION} (Sem conexao no momento)."
             }
         self.check_finished.emit(result)
+
+class UpdateDownloadWorker(QThread):
+    download_progress = pyqtSignal(int, int, int)
+    download_finished = pyqtSignal(bool, str)
+
+    def __init__(self, download_url: str, dest_path: str):
+        super().__init__()
+        self.download_url = download_url
+        self.dest_path = dest_path
+        self._cancel_requested = False
+
+    def cancel(self):
+        self._cancel_requested = True
+
+    def run(self):
+        try:
+            req = urllib.request.Request(
+                self.download_url,
+                headers={"User-Agent": f"PCPerformanceTrayHub/{CURRENT_VERSION}"}
+            )
+            with urllib.request.urlopen(req, timeout=20.0) as resp:
+                total_size = int(resp.headers.get("Content-Length", 0))
+                downloaded = 0
+                chunk_size = 64 * 1024
+                target_dir = os.path.dirname(os.path.abspath(self.dest_path))
+                os.makedirs(target_dir, exist_ok=True)
+                part_file = self.dest_path + ".download"
+                with open(part_file, "wb") as f:
+                    while True:
+                        if self._cancel_requested:
+                            f.close()
+                            try:
+                                os.remove(part_file)
+                            except Exception:
+                                pass
+                            self.download_finished.emit(False, "Download cancelado pelo usuario.")
+                            return
+                        chunk = resp.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        pct = int((downloaded / total_size) * 100) if total_size > 0 else 0
+                        self.download_progress.emit(pct, downloaded, total_size)
+                if os.path.exists(self.dest_path):
+                    try:
+                        os.remove(self.dest_path)
+                    except Exception:
+                        pass
+                os.replace(part_file, self.dest_path)
+                self.download_finished.emit(True, self.dest_path)
+        except Exception as e:
+            self.download_finished.emit(False, str(e))
+
+def apply_in_place_update(downloaded_file: str) -> bool:
+    import subprocess
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    if getattr(sys, "frozen", False):
+        current_exe = os.path.abspath(sys.executable)
+        target_dir = os.path.dirname(current_exe)
+        old_exe = current_exe + f".old_{int(time.time())}"
+        try:
+            os.replace(current_exe, old_exe)
+        except Exception:
+            try:
+                shutil.move(current_exe, old_exe)
+            except Exception:
+                return False
+        try:
+            shutil.move(downloaded_file, current_exe)
+        except Exception:
+            try:
+                shutil.copy2(downloaded_file, current_exe)
+                os.remove(downloaded_file)
+            except Exception:
+                return False
+        try:
+            subprocess.Popen([current_exe], cwd=target_dir, creationflags=flags)
+        except Exception:
+            pass
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            app.quit()
+        else:
+            sys.exit(0)
+        return True
+    else:
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        dist_dir = os.path.join(base_dir, "dist")
+        os.makedirs(dist_dir, exist_ok=True)
+        dest_exe = os.path.join(dist_dir, "PCTrayHub.exe")
+        try:
+            shutil.copy2(downloaded_file, dest_exe)
+            return True
+        except Exception:
+            return False
 
 def open_releases_page(url: str = None):
     target = url or RELEASES_PAGE_URL

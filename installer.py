@@ -164,25 +164,24 @@ class InstallWorker(QThread):
         try:
             self.progress_changed.emit(10, "Fechando instâncias ativas do aplicativo...")
             try:
-                import psutil
-                for proc in psutil.process_iter(['name']):
-                    try:
-                        if proc.info['name'] and 'PCTrayHub.exe' in proc.info['name']:
-                            proc.kill()
-                    except Exception:
-                        pass
+                subprocess.run(
+                    ["schtasks", "/end", "/tn", "PCPerformanceTrayHub"],
+                    capture_output=True,
+                    timeout=1.5,
+                    creationflags=flags
+                )
             except Exception:
                 pass
             try:
                 subprocess.run(
                     ["taskkill", "/f", "/im", "PCTrayHub.exe"],
                     capture_output=True,
-                    timeout=2.0,
+                    timeout=1.5,
                     creationflags=flags
                 )
             except Exception:
                 pass
-            time.sleep(0.4)
+            time.sleep(0.3)
 
             self.progress_changed.emit(25, "Criando diretório de instalação...")
             os.makedirs(self.target_dir, exist_ok=True)
@@ -202,27 +201,31 @@ class InstallWorker(QThread):
                 raise FileNotFoundError("Arquivo PCTrayHub.exe não encontrado no pacote de instalação.")
 
             copied = False
-            for attempt in range(5):
+            if os.path.exists(dest_exe):
                 try:
-                    shutil.copy2(source_exe, dest_exe)
-                    copied = True
-                    break
-                except PermissionError:
+                    if os.path.samefile(source_exe, dest_exe):
+                        copied = True
+                except Exception:
+                    pass
+
+            if not copied:
+                for attempt in range(5):
                     try:
-                        old_file = dest_exe + f".old_{attempt}"
-                        if os.path.exists(old_file):
-                            try:
-                                os.remove(old_file)
-                            except Exception:
-                                pass
-                        os.replace(dest_exe, old_file)
                         shutil.copy2(source_exe, dest_exe)
                         copied = True
                         break
                     except Exception:
-                        time.sleep(0.4)
+                        try:
+                            old_file = dest_exe + f".old_{int(time.time())}_{attempt}"
+                            if os.path.exists(dest_exe):
+                                os.replace(dest_exe, old_file)
+                            shutil.copy2(source_exe, dest_exe)
+                            copied = True
+                            break
+                        except Exception:
+                            time.sleep(0.3)
 
-            if not copied:
+            if not copied and not os.path.exists(dest_exe):
                 shutil.copy2(source_exe, dest_exe)
 
             if os.path.exists(source_icon):
@@ -287,7 +290,7 @@ class InstallWorker(QThread):
                 with winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_key) as k:
                     winreg.SetValueEx(k, "DisplayName", 0, winreg.REG_SZ, "PC Performance Tray Hub")
                     winreg.SetValueEx(k, "DisplayIcon", 0, winreg.REG_SZ, dest_exe)
-                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, "1.0.4")
+                    winreg.SetValueEx(k, "DisplayVersion", 0, winreg.REG_SZ, "1.0.5")
                     winreg.SetValueEx(k, "Publisher", 0, winreg.REG_SZ, "Performance Hub")
                     winreg.SetValueEx(k, "InstallLocation", 0, winreg.REG_SZ, self.target_dir)
                     winreg.SetValueEx(k, "UninstallString", 0, winreg.REG_SZ, f'"{uninstaller_bat}"')
