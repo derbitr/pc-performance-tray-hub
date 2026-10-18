@@ -22,6 +22,7 @@ class PerformanceTrayApp:
     def __init__(self):
         self.app = QApplication.instance() or QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
+        self.app.aboutToQuit.connect(self._quit)
 
         self.power_mgr = PowerManager()
         self.mem_mgr = MemoryManager()
@@ -249,10 +250,14 @@ class PerformanceTrayApp:
         finally:
             try:
                 client.disconnectFromServer()
+                client.deleteLater()
             except Exception:
                 pass
 
     def _quit(self):
+        if getattr(self, "_is_quitting", False):
+            return
+        self._is_quitting = True
         try:
             if hasattr(self, 'ipc_server'):
                 self.ipc_server.close()

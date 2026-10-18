@@ -497,6 +497,12 @@ class InstallerWindow(QWidget):
             del self._drag_pos
             event.accept()
 
+    def closeEvent(self, event):
+        event.accept()
+        app = QApplication.instance()
+        if app:
+            app.quit()
+
 def main():
     app = QApplication(sys.argv)
     window = InstallerWindow()

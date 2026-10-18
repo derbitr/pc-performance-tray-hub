@@ -3,6 +3,7 @@ import ctypes
 from ctypes import wintypes
 import os
 import time
+import atexit
 
 if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
     sys.path.insert(0, sys._MEIPASS)
@@ -50,6 +51,8 @@ def release_single_instance():
         except Exception:
             pass
         _mutex_handle = None
+
+atexit.register(release_single_instance)
 
 def notify_running_instance():
     try:

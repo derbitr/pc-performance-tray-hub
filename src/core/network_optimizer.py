@@ -27,7 +27,7 @@ class NetworkOptimizer:
                     capture_output=True,
                     text=True,
                     timeout=4.0,
-                    creationflags=subprocess.CREATE_NO_WINDOW
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
                 )
                 if res.returncode == 0:
                     success = True

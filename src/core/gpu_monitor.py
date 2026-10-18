@@ -87,7 +87,7 @@ class GPUMonitor:
         self._current_gpu_temp = 44.0
 
     def set_fan_mode(self, mode: str) -> str:
-        if mode in ("auto", "silent", "gaming", "max"):
+        if mode in ("auto", "silent", "gaming", "max", "manual"):
             self.fan_mode = mode
             if mode == "silent":
                 self.fan_speed = 40
