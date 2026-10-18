@@ -1,12 +1,126 @@
 import winreg
 import psutil
-from typing import Dict, Any, List
+import ctypes
+from ctypes import wintypes
+from typing import Dict, Any, List, Tuple, Optional
 
 class GPUMonitor:
     def __init__(self):
         self.gpus: List[Dict[str, Any]] = []
         self.primary_gpu: Dict[str, Any] = {}
+        self.fan_mode = "auto"
+        self.fan_speed = 50
+        self._current_gpu_temp = 40.0
+        self._pdh_ready = False
+        self._h_query = wintypes.HANDLE()
+        self._h_eng = wintypes.HANDLE()
+        self._h_mem = wintypes.HANDLE()
         self._detect_gpus()
+        self._init_pdh()
+
+    def __del__(self):
+        try:
+            if getattr(self, "_pdh_ready", False) and getattr(self, "_h_query", None):
+                ctypes.windll.pdh.PdhCloseQuery(self._h_query)
+        except Exception:
+            pass
+
+    def _init_pdh(self):
+        try:
+            pdh = ctypes.windll.pdh
+            if pdh.PdhOpenQueryW(None, 0, ctypes.byref(self._h_query)) == 0:
+                e1 = pdh.PdhAddEnglishCounterW(
+                    self._h_query,
+                    r"\GPU Engine(*_engtype_3D)\Utilization Percentage",
+                    0,
+                    ctypes.byref(self._h_eng)
+                )
+                e2 = pdh.PdhAddEnglishCounterW(
+                    self._h_query,
+                    r"\GPU Adapter Memory(*)\Dedicated Usage",
+                    0,
+                    ctypes.byref(self._h_mem)
+                )
+                if e1 == 0 or e2 == 0:
+                    pdh.PdhCollectQueryData(self._h_query)
+                    self._pdh_ready = True
+        except Exception:
+            self._pdh_ready = False
+
+    def _query_pdh(self) -> Tuple[Optional[float], Optional[int]]:
+        if not self._pdh_ready:
+            return None, None
+        try:
+            pdh = ctypes.windll.pdh
+            if pdh.PdhCollectQueryData(self._h_query) != 0:
+                return None, None
+
+            load = 0.0
+            buf_size = wintypes.DWORD(0)
+            item_count = wintypes.DWORD(0)
+            pdh.PdhGetFormattedCounterArrayW(
+                self._h_eng,
+                0x00000200,
+                ctypes.byref(buf_size),
+                ctypes.byref(item_count),
+                None
+            )
+            if buf_size.value > 0:
+                buf = (ctypes.c_byte * buf_size.value)()
+                if pdh.PdhGetFormattedCounterArrayW(
+                    self._h_eng,
+                    0x00000200,
+                    ctypes.byref(buf_size),
+                    ctypes.byref(item_count),
+                    buf
+                ) == 0:
+                    class ITEM_D(ctypes.Structure):
+                        _fields_ = [
+                            ("szName", wintypes.LPWSTR),
+                            ("CStatus", wintypes.DWORD),
+                            ("val", ctypes.c_double)
+                        ]
+                    items = ctypes.cast(buf, ctypes.POINTER(ITEM_D))
+                    for i in range(item_count.value):
+                        if items[i].CStatus == 0:
+                            load += items[i].val
+
+            vram_mb = None
+            buf_size.value = 0
+            item_count.value = 0
+            pdh.PdhGetFormattedCounterArrayW(
+                self._h_mem,
+                0x00000800,
+                ctypes.byref(buf_size),
+                ctypes.byref(item_count),
+                None
+            )
+            if buf_size.value > 0:
+                buf = (ctypes.c_byte * buf_size.value)()
+                if pdh.PdhGetFormattedCounterArrayW(
+                    self._h_mem,
+                    0x00000800,
+                    ctypes.byref(buf_size),
+                    ctypes.byref(item_count),
+                    buf
+                ) == 0:
+                    class ITEM_L(ctypes.Structure):
+                        _fields_ = [
+                            ("szName", wintypes.LPWSTR),
+                            ("CStatus", wintypes.DWORD),
+                            ("val", ctypes.c_int64)
+                        ]
+                    items = ctypes.cast(buf, ctypes.POINTER(ITEM_L))
+                    total_bytes = 0
+                    for i in range(item_count.value):
+                        if items[i].CStatus == 0 and items[i].val > 0:
+                            total_bytes += items[i].val
+                    if total_bytes > 0:
+                        vram_mb = int(round(total_bytes / (1024 * 1024)))
+
+            return min(100.0, max(0.0, load)), vram_mb
+        except Exception:
+            return None, None
 
     def _detect_gpus(self):
         gpus = []
@@ -82,9 +196,6 @@ class GPUMonitor:
         sorted_gpus = sorted(gpus, key=lambda g: (g["is_discrete"], g.get("vram_mb", 0)), reverse=True)
         self.gpus = sorted_gpus
         self.primary_gpu = sorted_gpus[0]
-        self.fan_mode = "auto"
-        self.fan_speed = 50
-        self._current_gpu_temp = 44.0
 
     def set_fan_mode(self, mode: str) -> str:
         if mode in ("auto", "silent", "gaming", "max", "manual"):
@@ -102,22 +213,34 @@ class GPUMonitor:
         self.fan_speed = max(30, min(100, int(speed_percent)))
         return self.fan_speed
 
-    def get_gpu_info(self) -> Dict[str, Any]:
+    def get_gpu_info(self, cpu_percent: Optional[int] = None) -> Dict[str, Any]:
         name = self.primary_gpu.get("name", "GPU")
         vram_total = max(1, self.primary_gpu.get("vram_mb", 1024))
 
-        cpu_load = psutil.cpu_percent(interval=None)
-        simulated_gpu_load = int(min(99, max(5, cpu_load * 0.85 + 4)))
-        simulated_vram_used = int(min(vram_total, max(32, int((vram_total * 0.35) + ((cpu_load / 100.0) * (vram_total * 0.3))))))
+        real_load, real_vram = self._query_pdh()
 
-        target_gpu_temp = 43.0 + (simulated_gpu_load * 0.38)
-        if target_gpu_temp > self._current_gpu_temp:
-            self._current_gpu_temp += (target_gpu_temp - self._current_gpu_temp) * 0.25
+        if real_load is not None:
+            gpu_load = int(round(real_load))
+            if real_vram is not None and real_vram > 0:
+                vram_used = min(vram_total, real_vram)
+            else:
+                vram_used = int(min(vram_total, max(64, int((vram_total * 0.18) + ((gpu_load / 100.0) * (vram_total * 0.35))))))
         else:
-            self._current_gpu_temp -= (self._current_gpu_temp - target_gpu_temp) * 0.08
+            if cpu_percent is not None:
+                cpu_load = float(cpu_percent)
+            else:
+                cpu_load = psutil.cpu_percent(interval=0.02) or 0.0
+            gpu_load = int(min(99, max(0, round(cpu_load * 0.70))))
+            vram_used = int(min(vram_total, max(64, int((vram_total * 0.18) + ((cpu_load / 100.0) * (vram_total * 0.35))))))
+
+        target_gpu_temp = 38.0 + (gpu_load * 0.38)
+        if target_gpu_temp > self._current_gpu_temp:
+            self._current_gpu_temp += (target_gpu_temp - self._current_gpu_temp) * 0.22
+        else:
+            self._current_gpu_temp -= (self._current_gpu_temp - target_gpu_temp) * 0.06
 
         if self.fan_mode == "auto":
-            calc_fan = int(35 + (self._current_gpu_temp - 40.0) * 1.5 + (simulated_gpu_load * 0.3))
+            calc_fan = int(35 + (self._current_gpu_temp - 38.0) * 1.5 + (gpu_load * 0.25))
             active_fan_speed = max(35, min(100, calc_fan))
         elif self.fan_mode == "silent":
             active_fan_speed = 40
@@ -128,16 +251,18 @@ class GPUMonitor:
         else:
             active_fan_speed = self.fan_speed
 
-        fan_cooling = int((active_fan_speed - 50) * 0.1)
-        display_temp = int(max(38, min(88, round(self._current_gpu_temp - fan_cooling))))
+        fan_cooling = int((active_fan_speed - 50) * 0.12)
+        display_temp = int(max(34, min(92, round(self._current_gpu_temp - fan_cooling))))
         fan_rpm = int(850 + ((active_fan_speed - 30) / 70.0) * 2150)
+
+        vram_pct = int(round((vram_used / vram_total) * 100))
 
         return {
             "name": name,
             "vram_total_mb": vram_total,
-            "vram_used_mb": simulated_vram_used,
-            "vram_percent": int((simulated_vram_used / vram_total) * 100),
-            "gpu_percent": simulated_gpu_load,
+            "vram_used_mb": vram_used,
+            "vram_percent": vram_pct,
+            "gpu_percent": gpu_load,
             "temp_c": display_temp,
             "fan_speed_percent": active_fan_speed,
             "fan_rpm": fan_rpm,

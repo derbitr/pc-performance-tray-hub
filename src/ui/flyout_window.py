@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QSlider, QFrame, QProgressBar, QApplication
 )
 from PyQt6.QtCore import (
-    Qt, QTimer, pyqtSignal, QPoint, QVariantAnimation, QEasingCurve, QAbstractAnimation
+    Qt, QTimer, QThread, pyqtSignal, QPoint, QVariantAnimation, QEasingCurve, QAbstractAnimation
 )
 from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QPixmap
 from PyQt6.QtSvg import QSvgRenderer
@@ -120,6 +120,25 @@ class SafeSlider(QSlider):
     def wheelEvent(self, event):
         event.ignore()
 
+class DiskHealthWorker(QThread):
+    finished = pyqtSignal(str, str)
+
+    def run(self):
+        try:
+            score = HealthChecker.get_system_health_score()
+            disks = score.get("disks", [])
+            count = len(disks)
+            all_ok = score.get("all_healthy", True)
+            if all_ok:
+                txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
+                style = "font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;"
+            else:
+                txt = "Atenção SMART"
+                style = "font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;"
+            self.finished.emit(txt, style)
+        except Exception:
+            self.finished.emit("Discos OK", "font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;")
+
 class FlyoutWindow(QWidget):
     scheme_changed = pyqtSignal(str)
     update_available = pyqtSignal(dict)
@@ -178,6 +197,7 @@ class FlyoutWindow(QWidget):
 
         self.update_worker: Optional[UpdateCheckWorker] = None
         self.download_worker: Optional[UpdateDownloadWorker] = None
+        self.disk_worker: Optional[DiskHealthWorker] = None
         self.last_update_info: Dict[str, Any] = {}
 
         self._update_telemetry(force=True)
@@ -783,25 +803,11 @@ class FlyoutWindow(QWidget):
         return card
 
     def _refresh_disk_health(self):
-        import threading
-        def worker():
-            try:
-                score = self.health_checker.get_system_health_score()
-                disks = score.get("disks", [])
-                count = len(disks)
-                all_ok = score.get("all_healthy", True)
-                if all_ok:
-                    txt = f"{count} Discos 100% OK" if count > 1 else "Disco 100% OK"
-                    style = "font-size: 10px; font-weight: 700; color: #10B981; font-family: 'Consolas', monospace;"
-                else:
-                    txt = "Atenção SMART"
-                    style = "font-size: 10px; font-weight: 700; color: #F59E0B; font-family: 'Consolas', monospace;"
-                QTimer.singleShot(0, lambda: self._apply_disk_health(txt, style))
-            except Exception:
-                pass
-
-        t = threading.Thread(target=worker, daemon=True)
-        t.start()
+        if self.disk_worker is not None and self.disk_worker.isRunning():
+            return
+        self.disk_worker = DiskHealthWorker(self)
+        self.disk_worker.finished.connect(self._apply_disk_health)
+        self.disk_worker.start()
 
     def _apply_disk_health(self, text: str, style: str):
         if hasattr(self, 'lbl_health_score'):
@@ -840,8 +846,8 @@ class FlyoutWindow(QWidget):
         row1 = QHBoxLayout()
         lbl_l = QLabel("Carga da GPU:")
         lbl_l.setStyleSheet("font-size: 10px; color: #94A3B8;")
-        self.lbl_gpu_load_val = QLabel("0% • 45°C")
-        self.lbl_gpu_load_val.setStyleSheet("font-size: 10px; font-weight: 700; color: #F59E0B; font-family: Consolas;")
+        self.lbl_gpu_load_val = QLabel("0% • 40°C")
+        self.lbl_gpu_load_val.setStyleSheet("font-size: 10px; font-weight: 700; color: #38BDF8; font-family: Consolas;")
         row1.addWidget(lbl_l)
         row1.addStretch()
         row1.addWidget(self.lbl_gpu_load_val)
@@ -850,14 +856,14 @@ class FlyoutWindow(QWidget):
         self.bar_gpu_load = QProgressBar()
         self.bar_gpu_load.setTextVisible(False)
         self.bar_gpu_load.setFixedHeight(3)
-        self.bar_gpu_load.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #F59E0B; }")
+        self.bar_gpu_load.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #38BDF8; }")
         lay.addWidget(self.bar_gpu_load)
 
         row2 = QHBoxLayout()
         lbl_v = QLabel("Memória de Vídeo (VRAM):")
         lbl_v.setStyleSheet("font-size: 10px; color: #94A3B8;")
-        self.lbl_gpu_vram = QLabel("0 / 1024 MB")
-        self.lbl_gpu_vram.setStyleSheet("font-size: 10px; font-weight: 700; color: #F43F5E; font-family: Consolas;")
+        self.lbl_gpu_vram = QLabel("0 / 1024 MB (0%)")
+        self.lbl_gpu_vram.setStyleSheet("font-size: 10px; font-weight: 700; color: #10B981; font-family: Consolas;")
         row2.addWidget(lbl_v)
         row2.addStretch()
         row2.addWidget(self.lbl_gpu_vram)
@@ -866,7 +872,7 @@ class FlyoutWindow(QWidget):
         self.bar_gpu_vram = QProgressBar()
         self.bar_gpu_vram.setTextVisible(False)
         self.bar_gpu_vram.setFixedHeight(3)
-        self.bar_gpu_vram.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #F43F5E; }")
+        self.bar_gpu_vram.setStyleSheet("QProgressBar { background: #161F30; border: none; border-radius: 1px; } QProgressBar::chunk { background: #10B981; }")
         lay.addWidget(self.bar_gpu_vram)
 
         row3 = QHBoxLayout()
@@ -1431,7 +1437,7 @@ class FlyoutWindow(QWidget):
 
     def _update_telemetry(self, force: bool = False):
         metrics = self.hw_monitor.get_metrics()
-        gpu_info = self.gpu_monitor.get_gpu_info()
+        gpu_info = self.gpu_monitor.get_gpu_info(cpu_percent=metrics.get('cpu_percent'))
 
         if hasattr(self, 'sparkline_cpu'):
             self.sparkline_cpu.add_point(metrics['cpu_percent'], metrics['temp_c'])
@@ -1462,10 +1468,22 @@ class FlyoutWindow(QWidget):
 
         if hasattr(self, 'lbl_gpu_name'):
             self.lbl_gpu_name.setText(gpu_info['name'])
-            self.lbl_gpu_load_val.setText(f"{gpu_info['gpu_percent']}% • {gpu_info['temp_c']}°C")
-            self.bar_gpu_load.setValue(gpu_info['gpu_percent'])
-            self.lbl_gpu_vram.setText(f"{gpu_info['vram_used_mb']} / {gpu_info['vram_total_mb']} MB ({gpu_info['vram_percent']}%)")
-            self.bar_gpu_vram.setValue(gpu_info['vram_percent'])
+            gpu_pct = gpu_info['gpu_percent']
+            temp_c = gpu_info['temp_c']
+            vram_pct = gpu_info['vram_percent']
+
+            load_color = "#38BDF8" if gpu_pct < 70 else ("#F59E0B" if gpu_pct < 85 else "#F43F5E")
+            vram_color = "#10B981" if vram_pct < 70 else ("#F59E0B" if vram_pct < 85 else "#F43F5E")
+
+            self.lbl_gpu_load_val.setText(f"{gpu_pct}% • {temp_c}°C")
+            self.lbl_gpu_load_val.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {load_color}; font-family: Consolas;")
+            self.bar_gpu_load.setValue(gpu_pct)
+            self.bar_gpu_load.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {load_color}; }}")
+
+            self.lbl_gpu_vram.setText(f"{gpu_info['vram_used_mb']} / {gpu_info['vram_total_mb']} MB ({vram_pct}%)")
+            self.lbl_gpu_vram.setStyleSheet(f"font-size: 10px; font-weight: 700; color: {vram_color}; font-family: Consolas;")
+            self.bar_gpu_vram.setValue(vram_pct)
+            self.bar_gpu_vram.setStyleSheet(f"QProgressBar {{ background: #161F30; border: none; border-radius: 1px; }} QProgressBar::chunk {{ background: {vram_color}; }}")
 
         fg = self.game_focus.get_foreground_process()
         game_tel = self.fps_sync.get_game_telemetry(fg)
@@ -1799,3 +1817,4 @@ class FlyoutWindow(QWidget):
             self.raise_()
             self.activateWindow()
             self._update_telemetry(force=True)
+            self._refresh_disk_health()
