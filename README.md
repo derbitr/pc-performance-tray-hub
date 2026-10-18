@@ -2,6 +2,8 @@
 
 Otimizador de desktop ultraleve (consumo inferior a 20 MB de RAM e 0.0% de CPU em idle) com interface Full Night Mode (True Dark) e iconografia vetorial SVG nativa, desenvolvido especificamente para Windows 10 e Windows 11.
 
+![Demonstração Visual do PC Performance Tray Hub](assets/leninemeuprojeto.png)
+
 ---
 
 ## Download Rápido
