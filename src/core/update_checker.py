@@ -8,7 +8,7 @@ import webbrowser
 from typing import Dict, Any, Tuple
 from PyQt6.QtCore import QThread, pyqtSignal
 
-CURRENT_VERSION = "1.0.7"
+CURRENT_VERSION = "1.0.8"
 REPO_OWNER = "derbitr"
 REPO_NAME = "pc-performance-tray-hub"
 GITHUB_API_URL = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/latest"

@@ -31,7 +31,7 @@ class GPUMonitor:
             if pdh.PdhOpenQueryW(None, 0, ctypes.byref(self._h_query)) == 0:
                 e1 = pdh.PdhAddEnglishCounterW(
                     self._h_query,
-                    r"\GPU Engine(*_engtype_3D)\Utilization Percentage",
+                    r"\GPU Engine(*)\Utilization Percentage",
                     0,
                     ctypes.byref(self._h_eng)
                 )
@@ -213,34 +213,40 @@ class GPUMonitor:
         self.fan_speed = max(30, min(100, int(speed_percent)))
         return self.fan_speed
 
-    def get_gpu_info(self, cpu_percent: Optional[int] = None) -> Dict[str, Any]:
+    def get_gpu_info(self, cpu_percent: Optional[int] = None, cpu_temp: Optional[int] = None) -> Dict[str, Any]:
         name = self.primary_gpu.get("name", "GPU")
         vram_total = max(1, self.primary_gpu.get("vram_mb", 1024))
 
         real_load, real_vram = self._query_pdh()
 
-        if real_load is not None:
+        if real_load is not None and real_load > 0.0:
             gpu_load = int(round(real_load))
             if real_vram is not None and real_vram > 0:
                 vram_used = min(vram_total, real_vram)
             else:
-                vram_used = int(min(vram_total, max(64, int((vram_total * 0.18) + ((gpu_load / 100.0) * (vram_total * 0.35))))))
+                vram_used = int(min(vram_total, max(128, int((vram_total * 0.22) + ((gpu_load / 100.0) * (vram_total * 0.40))))))
         else:
             if cpu_percent is not None:
                 cpu_load = float(cpu_percent)
             else:
-                cpu_load = psutil.cpu_percent(interval=0.02) or 0.0
-            gpu_load = int(min(99, max(0, round(cpu_load * 0.70))))
-            vram_used = int(min(vram_total, max(64, int((vram_total * 0.18) + ((cpu_load / 100.0) * (vram_total * 0.35))))))
+                cpu_load = psutil.cpu_percent(interval=0.0) or 0.0
+            if real_load is not None:
+                gpu_load = int(min(99, max(0, round(cpu_load * 0.35))))
+            else:
+                gpu_load = int(min(99, max(0, round(cpu_load * 0.60))))
+            vram_used = int(min(vram_total, max(128, int((vram_total * 0.22) + ((cpu_load / 100.0) * (vram_total * 0.35))))))
 
-        target_gpu_temp = 38.0 + (gpu_load * 0.38)
+        ambient_base = 38.0
+        if cpu_temp is not None and cpu_temp > 45:
+            ambient_base = 36.0 + (float(cpu_temp) - 45.0) * 0.25
+        target_gpu_temp = ambient_base + (gpu_load * 0.38)
         if target_gpu_temp > self._current_gpu_temp:
             self._current_gpu_temp += (target_gpu_temp - self._current_gpu_temp) * 0.22
         else:
-            self._current_gpu_temp -= (self._current_gpu_temp - target_gpu_temp) * 0.06
+            self._current_gpu_temp -= (self._current_gpu_temp - target_gpu_temp) * 0.08
 
         if self.fan_mode == "auto":
-            calc_fan = int(35 + (self._current_gpu_temp - 38.0) * 1.5 + (gpu_load * 0.25))
+            calc_fan = int(35 + (self._current_gpu_temp - 38.0) * 1.4 + (gpu_load * 0.20))
             active_fan_speed = max(35, min(100, calc_fan))
         elif self.fan_mode == "silent":
             active_fan_speed = 40
@@ -251,8 +257,8 @@ class GPUMonitor:
         else:
             active_fan_speed = self.fan_speed
 
-        fan_cooling = int((active_fan_speed - 50) * 0.12)
-        display_temp = int(max(34, min(92, round(self._current_gpu_temp - fan_cooling))))
+        fan_cooling = max(0.0, (active_fan_speed - 40) * 0.08)
+        display_temp = int(max(38, min(95, round(self._current_gpu_temp - fan_cooling))))
         fan_rpm = int(850 + ((active_fan_speed - 30) / 70.0) * 2150)
 
         vram_pct = int(round((vram_used / vram_total) * 100))

@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import (
     Qt, QTimer, QThread, pyqtSignal, QPoint, QVariantAnimation, QEasingCurve, QAbstractAnimation
 )
-from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QPixmap
+from PyQt6.QtGui import QColor, QFont, QCursor, QIcon, QPixmap, QPainter, QBrush, QPen
 from PyQt6.QtSvg import QSvgRenderer
 
 import sys
@@ -177,8 +177,8 @@ class FlyoutWindow(QWidget):
         self.graph_location = "hub"
         self.fan_location = "hub"
         self.show_cpu_graph = True
-        self.show_ram_graph = False
-        self.show_gpu_graph = False
+        self.show_ram_graph = True
+        self.show_gpu_graph = True
 
         self._load_config()
 
@@ -221,6 +221,7 @@ class FlyoutWindow(QWidget):
         header = QHBoxLayout(header_card)
         header.setContentsMargins(8, 7, 8, 7)
         header.setSpacing(6)
+        header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         icon_lbl = QLabel()
         icon_lbl.setPixmap(create_svg_pixmap(get_svg(ICON_BOLT, "#38BDF8"), 18))
@@ -285,7 +286,7 @@ class FlyoutWindow(QWidget):
         footer = QHBoxLayout()
         footer_lbl = QLabel("Atalho: <span style='color:#38BDF8; font-family:Consolas;'>Ctrl+Shift+F12</span>")
         footer_lbl.setTextFormat(Qt.TextFormat.RichText)
-        footer_lbl.setStyleSheet("font-size: 10px; color: #475569;")
+        footer_lbl.setStyleSheet("font-size: 10px; color: #64748B;")
         footer.addWidget(footer_lbl)
         footer.addStretch()
 
@@ -297,12 +298,12 @@ class FlyoutWindow(QWidget):
 
         reset_btn = QPushButton("Resetar Canto")
         reset_btn.setToolTip("Restaura a posição original sobre a bandeja")
-        reset_btn.setStyleSheet("font-size: 10px; padding: 2px 6px; color: #64748B; border: none; background: transparent;")
+        reset_btn.setStyleSheet("font-size: 10px; padding: 2px 6px; color: #94A3B8; border: none; background: transparent;")
         reset_btn.clicked.connect(self.reset_to_tray_position)
         footer.addWidget(reset_btn)
 
         close_btn = QPushButton("Fechar")
-        close_btn.setStyleSheet("font-size: 10px; padding: 2px 8px; color: #64748B; border: none; background: transparent;")
+        close_btn.setStyleSheet("font-size: 10px; padding: 2px 8px; color: #94A3B8; border: none; background: transparent;")
         close_btn.clicked.connect(self.hide)
         footer.addWidget(close_btn)
         self.main_pane_layout.addLayout(footer)
@@ -325,6 +326,7 @@ class FlyoutWindow(QWidget):
         wing_header = QHBoxLayout(wing_header_card)
         wing_header.setContentsMargins(8, 7, 8, 7)
         wing_header.setSpacing(6)
+        wing_header.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         gpu_hdr_icon = QLabel()
         gpu_hdr_icon.setPixmap(create_svg_pixmap(get_svg(ICON_GPU, "#38BDF8"), 16))
@@ -1431,13 +1433,13 @@ class FlyoutWindow(QWidget):
 
     def _apply_pill_style(self, btn: QPushButton, is_active: bool, border_color: str, bg_active: str):
         if is_active:
-            btn.setStyleSheet(f"background-color: {bg_active}; border: 1px solid {border_color}; color: {border_color}; font-size: 10px; font-weight: 700; padding: 5px;")
+            btn.setStyleSheet(f"QPushButton {{ background-color: {bg_active}; border: 1px solid {border_color}; color: {border_color}; font-size: 10px; font-weight: 700; padding: 5px; border-radius: 5px; }} QPushButton:hover {{ border-color: #FFFFFF; }}")
         else:
-            btn.setStyleSheet("background-color: #0B0F19; border: 1px solid #161F30; color: #64748B; font-size: 10px; font-weight: 600; padding: 5px;")
+            btn.setStyleSheet("QPushButton {{ background-color: #0E1626; border: 1px solid #1E293B; color: #94A3B8; font-size: 10px; font-weight: 600; padding: 5px; border-radius: 5px; }} QPushButton:hover {{ background-color: #162238; border-color: #38BDF8; color: #F8FAFC; }}")
 
     def _update_telemetry(self, force: bool = False):
         metrics = self.hw_monitor.get_metrics()
-        gpu_info = self.gpu_monitor.get_gpu_info(cpu_percent=metrics.get('cpu_percent'))
+        gpu_info = self.gpu_monitor.get_gpu_info(cpu_percent=metrics.get('cpu_percent'), cpu_temp=metrics.get('temp_c'))
 
         if hasattr(self, 'sparkline_cpu'):
             self.sparkline_cpu.add_point(metrics['cpu_percent'], metrics['temp_c'])
@@ -1683,8 +1685,12 @@ class FlyoutWindow(QWidget):
                     f_loc = str(cfg.get("fan_location", "hub")).lower()
                     self.fan_location = f_loc if f_loc in ("hub", "wing") else "hub"
                     self.show_cpu_graph = bool(cfg.get("show_cpu_graph", True))
-                    self.show_ram_graph = bool(cfg.get("show_ram_graph", False))
-                    self.show_gpu_graph = bool(cfg.get("show_gpu_graph", False))
+                    if "version" not in cfg:
+                        self.show_ram_graph = True
+                        self.show_gpu_graph = True
+                    else:
+                        self.show_ram_graph = bool(cfg.get("show_ram_graph", True))
+                        self.show_gpu_graph = bool(cfg.get("show_gpu_graph", True))
                     f_mode = str(cfg.get("fan_mode", "auto")).lower()
                     fan_mode = f_mode if f_mode in ("auto", "silent", "gaming", "max", "manual") else "auto"
                     try:
@@ -1706,6 +1712,7 @@ class FlyoutWindow(QWidget):
     def _save_config(self):
         try:
             cfg = {
+                "version": CURRENT_VERSION,
                 "pinned": self.is_pinned,
                 "opacity": self.opacity,
                 "x": self.pos().x(),
@@ -1793,6 +1800,15 @@ class FlyoutWindow(QWidget):
         self.move(x, y)
         self.custom_pos = None
         self._save_config()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(QBrush(QColor("#07090E")))
+        painter.setPen(QPen(QColor("#1E293B"), 1))
+        rect = self.rect().adjusted(0, 0, -1, -1)
+        painter.drawRoundedRect(rect, 14, 14)
+        painter.end()
 
     def closeEvent(self, event):
         event.ignore()
