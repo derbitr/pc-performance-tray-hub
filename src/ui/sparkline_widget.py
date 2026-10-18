@@ -3,6 +3,8 @@ from PyQt6.QtGui import QPainter, QColor, QPen, QPainterPath, QFont, QLinearGrad
 from PyQt6.QtCore import Qt, QPointF
 from collections import deque
 
+from typing import Optional
+
 class SparklineWidget(QWidget):
     def __init__(
         self,
@@ -14,7 +16,11 @@ class SparklineWidget(QWidget):
         min_2: float = 30.0,
         max_2: float = 90.0,
         height: int = 54,
-        max_points: int = 30
+        max_points: int = 30,
+        title_3: Optional[str] = None,
+        color_3: Optional[str] = None,
+        min_3: float = 0.0,
+        max_3: float = 100.0
     ):
         super().__init__(parent)
         self.setFixedHeight(height)
@@ -26,10 +32,16 @@ class SparklineWidget(QWidget):
         self.min_2 = min_2
         self.max_2 = max_2
 
+        self.title_3 = title_3
+        self.color_3 = QColor(color_3) if color_3 else None
+        self.min_3 = min_3
+        self.max_3 = max_3
+
         self.history_1 = deque([15.0] * max_points, maxlen=max_points)
         self.history_2 = deque([min_2 + (max_2 - min_2) * 0.3] * max_points, maxlen=max_points)
+        self.history_3 = deque([min_3 + (max_3 - min_3) * 0.5] * max_points, maxlen=max_points) if title_3 else None
 
-    def add_point(self, val_1: float, val_2: float):
+    def add_point(self, val_1: float, val_2: float, val_3: Optional[float] = None):
         import math
         try:
             v1 = float(val_1) if val_1 is not None else 0.0
@@ -43,10 +55,35 @@ class SparklineWidget(QWidget):
                 v2 = self.min_2
         except (ValueError, TypeError):
             v2 = self.min_2
+
         self.history_1.append(v1)
         self.history_2.append(v2)
+
+        if self.history_3 is not None:
+            v3 = self.min_3
+            if val_3 is not None:
+                try:
+                    vf = float(val_3)
+                    if not (math.isnan(vf) or math.isinf(vf)):
+                        v3 = vf
+                except (ValueError, TypeError):
+                    pass
+            self.history_3.append(v3)
+
         if self.isVisible():
             self.update()
+
+    def update_latest_third(self, val_3: float):
+        if self.history_3 is not None and len(self.history_3) > 0:
+            import math
+            try:
+                vf = float(val_3)
+                if not (math.isnan(vf) or math.isinf(vf)):
+                    self.history_3[-1] = vf
+                    if self.isVisible():
+                        self.update()
+            except (ValueError, TypeError):
+                pass
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -68,8 +105,16 @@ class SparklineWidget(QWidget):
         painter.setPen(self.color_1)
         painter.drawText(8, 12, self.title_1)
 
+        t1_w = painter.fontMetrics().horizontalAdvance(self.title_1)
+        pos_2 = max(50, 8 + t1_w + 10)
         painter.setPen(self.color_2)
-        painter.drawText(50, 12, self.title_2)
+        painter.drawText(pos_2, 12, self.title_2)
+
+        if self.title_3 and self.color_3:
+            t2_w = painter.fontMetrics().horizontalAdvance(self.title_2)
+            pos_3 = pos_2 + t2_w + 10
+            painter.setPen(self.color_3)
+            painter.drawText(pos_3, 12, self.title_3)
 
         painter.setPen(QColor("#475569"))
         th_w = painter.fontMetrics().horizontalAdvance("HISTORICO 30s")
@@ -139,5 +184,32 @@ class SparklineWidget(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(self.color_2, 1.5))
         painter.drawPath(path_2)
+
+        if self.history_3 is not None and self.color_3 is not None:
+            path_3 = QPainterPath()
+            for i, val in enumerate(self.history_3):
+                clamped = max(self.min_3, min(self.max_3, val))
+                x = plot_left + i * step_x
+                ratio = (clamped - self.min_3) / (self.max_3 - self.min_3) if self.max_3 > self.min_3 else 0.5
+                y = plot_bottom - ratio * plot_h
+                if i == 0:
+                    path_3.moveTo(x, y)
+                else:
+                    path_3.lineTo(x, y)
+
+            fill_path_3 = QPainterPath(path_3)
+            fill_path_3.lineTo(plot_left + (n - 1) * step_x, plot_bottom)
+            fill_path_3.lineTo(plot_left, plot_bottom)
+            fill_path_3.closeSubpath()
+
+            grad_3 = QLinearGradient(0, plot_top, 0, plot_bottom)
+            c_fill_3 = QColor(self.color_3.red(), self.color_3.green(), self.color_3.blue(), 18)
+            grad_3.setColorAt(0, c_fill_3)
+            grad_3.setColorAt(1, QColor(0, 0, 0, 0))
+            painter.fillPath(fill_path_3, grad_3)
+
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.setPen(QPen(self.color_3, 1.5))
+            painter.drawPath(path_3)
 
         painter.end()

@@ -384,7 +384,7 @@ class FlyoutWindow(QWidget):
         self.btn_pill_ram.clicked.connect(lambda: self._toggle_graph("ram"))
         pills.addWidget(self.btn_pill_ram)
 
-        self.btn_pill_gpu = QPushButton("GPU & VRAM")
+        self.btn_pill_gpu = QPushButton("GPU • Fan")
         self.btn_pill_gpu.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_pill_gpu.clicked.connect(lambda: self._toggle_graph("gpu"))
         pills.addWidget(self.btn_pill_gpu)
@@ -422,7 +422,11 @@ class FlyoutWindow(QWidget):
             color_2="#F43F5E",
             min_2=0.0,
             max_2=100.0,
-            height=50
+            height=50,
+            title_3="FAN %",
+            color_3="#38BDF8",
+            min_3=0.0,
+            max_3=100.0
         )
         lay.addWidget(self.sparkline_gpu)
 
@@ -1333,7 +1337,7 @@ class FlyoutWindow(QWidget):
             self.sparkline_ram.add_point(ram_used_pct, ram_free_gb)
 
         if hasattr(self, 'sparkline_gpu'):
-            self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'])
+            self.sparkline_gpu.add_point(gpu_info['gpu_percent'], gpu_info['vram_percent'], gpu_info['fan_speed_percent'])
 
         if not self.isVisible():
             if hasattr(self, 'game_focus') and self.game_focus.is_active:
@@ -1405,6 +1409,8 @@ class FlyoutWindow(QWidget):
         self.gpu_monitor.set_fan_mode(mode)
         self._update_gpu_fan_pills()
         self._update_fan_ui()
+        if hasattr(self, 'sparkline_gpu'):
+            self.sparkline_gpu.update_latest_third(self.gpu_monitor.fan_speed)
         self._save_config()
 
     def _update_fan_ui(self, gpu_info: Optional[Dict[str, Any]] = None):
@@ -1449,6 +1455,8 @@ class FlyoutWindow(QWidget):
         self.gpu_monitor.set_fan_speed(val)
         self._update_gpu_fan_pills()
         self._update_fan_ui()
+        if hasattr(self, 'sparkline_gpu'):
+            self.sparkline_gpu.update_latest_third(val)
         self._save_config()
 
     def _on_clean_ram(self):
