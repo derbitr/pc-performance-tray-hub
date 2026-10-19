@@ -1,0 +1,25 @@
+{
+  "$schema": "file:///C:/Users/Breno/.mesh/app/schemas/project.mesh.schema.json",
+  "id": "pc-checkup",
+  "name": "PC_checkup",
+  "summary": "Otimizador de desktop ultraleve para Windows (menos de 20 MB de RAM, 0% de CPU ocioso) com interface escura e ícones SVG nativos; empacotado com PyInstaller.",
+  "domain": "utilitário desktop Windows",
+  "goals": [],
+  "stack": [
+    "PyInstaller",
+    "Python"
+  ],
+  "tags": [
+    "windows",
+    "desktop",
+    "otimizacao"
+  ],
+  "interfaces": [],
+  "dependencies": {
+    "depends_on": [],
+    "provides_to": []
+  },
+  "mcp": {
+    "exposes": []
+  }
+}
