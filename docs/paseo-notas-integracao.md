@@ -73,3 +73,9 @@ Customizações globais do agy (doc `agy-customizations`):
 ## Declaração
 
 Este documento **não contém segredos, chaves de API nem tokens** — apenas referências por nome.
+
+## Referências
+
+- `.swarm/context.md` — notas de integração registradas em 2026-10-19 (fonte primária).
+- `docs/modelos-free-opencode.md` — catálogo curado dos 10 modelos free do provider opencode-free.
+- Plano do projeto — tarefas 1.1 (verificação do CLI agy), 1.2 (catálogo free) e 1.3 (estas notas).

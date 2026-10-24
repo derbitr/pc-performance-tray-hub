@@ -11,7 +11,7 @@ class NetworkOptimizer:
             try:
                 start = time.perf_counter()
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(1.2)
+                s.settimeout(0.6)
                 s.connect((host, 53))
                 rtt = (time.perf_counter() - start) * 1000.0
                 s.close()

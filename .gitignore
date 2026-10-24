@@ -27,3 +27,8 @@ test_*.ico
 
 docs/plans/
 docs/specs/
+# Diagnosticos e logs temporarios
+.oc-*
+ocdb_*
+find-agents*.mjs
+.tmp*/

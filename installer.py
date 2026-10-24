@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QFont
 from PyQt6.QtSvg import QSvgRenderer
 
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.1.0"
 
 DARK_INSTALLER_STYLE = """
 QWidget#InstallerRoot {
