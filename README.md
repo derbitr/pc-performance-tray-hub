@@ -117,11 +117,12 @@ Para desenvolvedores que desejam inspecionar o codigo, executar diretamente via 
   * Otimizacão de rede com descarga instântanea do cache de resolucao DNS (`ipconfig /flushdns` e `dnsapi.dll`).
 
 * **Congelamento Seguro de Aplicativos em Segundo Plano:**
-  * Pausa launchers pesados (Steam, Epic Games, Discord, EA App, Spotify, Docker) atraves de `NtSuspendProcess` durante sessoes de jogo, liberando CPU e RAM sem fechar as sessoes ativas.
+  * Pausa launchers pesados (Steam, Epic Games, Riot, EA App, Docker) atraves de `NtSuspendProcess` durante sessoes de jogo, liberando CPU e RAM sem fechar as sessoes ativas.
+  * Sistema de excecoes configuravel com protecao automatica para apps de musica (Spotify protegido por padrao), comunicadores de voz e qualquer aplicativo ativo em primeiro plano.
 
 * **Gadget de Atualizações do Sistema:**
   * Monitora a versão instalada em relação aos lançamentos oficiais no GitHub via API assíncrona com zero bloqueio de interface.
-  * Informa o status de versão atual (`v1.1.0`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para atualizar automaticamente o aplicativo em tempo real ("Atualizar Agora"), com download streaming, barra de progresso e reinicialização atômica sem necessidade de instalador manual.
+  * Informa o status de versão atual (`v1.1.1`), exibe novidades quando uma versão superior for lançada e disponibiliza botão de 1 clique para atualizar automaticamente o aplicativo em tempo real ("Atualizar Agora"), com download streaming, barra de progresso e reinicialização atômica sem necessidade de instalador manual.
   * Acessível tanto no gadget da gaveta lateral quanto através do menu de contexto da bandeja ("Verificar Atualizações").
 
 * **Diagnóstico de Sistema em 1 Clique:**
